@@ -1,0 +1,62 @@
+cabal-version: 2.4
+name: fortios-syslog
+version: 0.1.0.0
+synopsis: Parse FortiOS syslog traffic
+bug-reports: https://github.com/layer-3-communications/fortigate-syslog
+license: BSD-3-Clause
+license-file: LICENSE
+author: Andrew Martin
+maintainer: amartin@layer3com.com
+copyright: 2019 Layer 3 Communications
+category: Network
+build-type: Simple
+extra-source-files: CHANGELOG.md
+
+library
+  exposed-modules:
+    Fortios.Syslog
+    Fortios.Syslog.Unsafe
+    Fortios.Generated
+    Fortios.Hash
+  build-depends:
+    , array-builder >=0.1 && <0.2
+    , array-chunks >=0.1.1 && <0.2
+    , base >=4.12 && <5
+    , byteslice >=0.1.3 && <0.2
+    , bytesmith >=0.3.1 && <0.4
+    , chronos >=1.0.7
+    , ip >=1.6 && <1.7
+    , primitive >=0.7 && <0.8
+    , wide-word >=0.1.0.8
+  hs-source-dirs: src
+  ghc-options: -Wall -O2
+  default-language: Haskell2010
+
+test-suite test
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test, common
+  main-is: Main.hs
+  other-modules: Sample
+  build-depends:
+    , base
+    , byteslice
+    , fortios-syslog
+    , ip
+    , list-transformer >=1.0.6
+    , transformers >=0.5
+  ghc-options: -Wall -O2
+  default-language: Haskell2010
+
+benchmark bench
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules: Sample
+  hs-source-dirs: bench, common
+  build-depends:
+    , base
+    , byteslice
+    , fortios-syslog
+    , gauge
+    , primitive
+  ghc-options: -O2 -Wall
+  default-language: Haskell2010

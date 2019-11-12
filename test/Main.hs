@@ -1,15 +1,11 @@
 {-# language LambdaCase #-}
 
 import Control.Monad (when)
-import Control.Monad.Trans.Class (lift)
 import Data.Bytes (Bytes)
-import Data.Char (ord)
 import Data.Foldable (for_)
 
 import qualified Data.Bytes as Bytes
 import qualified Fortios.Syslog as FGT
-import qualified Data.List as List
-import qualified List.Transformer as ListT
 import qualified Sample as S
 import qualified Net.IP as IP
 import qualified Net.IPv4 as IPv4
@@ -62,58 +58,3 @@ testTrafficForwardA = case FGT.decode S.traffic_forward_A of
 
 str :: String -> Bytes
 str = Bytes.fromAsciiString
-
-hashFunc :: String -> Int
-hashFunc = List.foldl' (\acc c -> acc * ord c) 1
-
--- Check that the hash functions does not hash any of the
--- keys we are interested in to the same value.
-checkCollisions :: IO ()
-checkCollisions = ListT.runListT $ do
-  k1 <- ListT.select keywords
-  k2 <- ListT.select keywords
-  let h1 = hashFunc k1
-  let h2 = hashFunc k2
-  when (h1 == h2 && k1 /= k2)
-    $ lift (fail (k1 ++ " and " ++ k2 ++ " both hash to " ++ show h1))
-
-keywords :: [String]
-keywords =
-  [ "action"
-  , "app"
-  , "appcat"
-  , "cat"
-  , "catdesc"
-  , "craction"
-  , "crlevel"
-  , "crscore"
-  , "destcountry"
-  , "destintf"
-  , "destip"
-  , "destport"
-  , "direction"
-  , "duration"
-  , "hostname"
-  , "level"
-  , "method"
-  , "msg"
-  , "policyid"
-  , "policytype"
-  , "profile"
-  , "proto"
-  , "rcvdbyte"
-  , "rcvdpkt"
-  , "sentbyte"
-  , "sentpkt"
-  , "service"
-  , "sessionid"
-  , "srccountry"
-  , "srcintf"
-  , "srcip"
-  , "srcport"
-  , "trandisp"
-  , "transport"
-  , "transip"
-  , "url"
-  , "vd"
-  ]

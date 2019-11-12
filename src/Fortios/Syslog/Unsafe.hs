@@ -90,6 +90,7 @@ data DecodeException
   | InvalidSourceIp
   | InvalidSourcePort
   | InvalidSubtype
+  | InvalidSyslogPriority
   | InvalidTime
   | InvalidTranslationDisposition
   | InvalidTranslationIp
@@ -153,6 +154,14 @@ decode b = case P.parseBytes fullParser b of
 
 fullParser :: Parser DecodeException s Log
 fullParser = do
+  -- If the caret-surrounded syslog priority is present, ignore it.
+  Latin.trySatisfy (=='<') >>= \case
+    True -> do
+      Latin.skipDigits1 InvalidSyslogPriority
+      Latin.char InvalidSyslogPriority '>'
+    False -> pure ()
+  -- Skip any leading space or any space after the syslog priority.
+  Latin.skipChar ' '
   Latin.char5 ExpectedDate 'd' 'a' 't' 'e' '='
   Latin.skipTrailedBy InvalidDate ' '
   Latin.char5 ExpectedTime 't' 'i' 'm' 'e' '='
@@ -195,62 +204,62 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidVirtualDomain
         pure (VirtualDomain val)
       _ -> P.fail UnknownField
-    _ -> error (show b) -- P.fail UnknownField
+    _ -> P.fail UnknownField
   3 -> case G.hashString3 arr off of
     G.H_app -> case equal3 arr off 'a' 'p' 'p' of
       1# -> do
         val <- asciiTextField InvalidApp
         pure (App val)
       _ -> P.fail UnknownField
-    _ -> error (show b) -- P.fail UnknownField
+    _ -> P.fail UnknownField
   5 -> case G.hashString5 arr off of
     G.H_wanin -> case equal5 arr off 'w' 'a' 'n' 'i' 'n' of
       1# -> do
         val <- Latin.decWord64 InvalidWanIn
         pure (WanIn val)
-      _ -> error (show b) -- P.fail UnknownField
+      _ -> P.fail UnknownField
     G.H_lanin -> case equal5 arr off 'l' 'a' 'n' 'i' 'n' of
       1# -> do
         val <- Latin.decWord64 InvalidLanIn
         pure (LanIn val)
-      _ -> error (show b) -- P.fail UnknownField
+      _ -> P.fail UnknownField
     G.H_srcip -> case equal5 arr off 's' 'r' 'c' 'i' 'p' of
       1# -> do
         val <- IP.parserUtf8Bytes InvalidSourceIp
         pure (SourceIp val)
-      _ -> error (show b) -- P.fail UnknownField
+      _ -> P.fail UnknownField
     G.H_dstip -> case equal5 arr off 'd' 's' 't' 'i' 'p' of
       1# -> do
         val <- IP.parserUtf8Bytes InvalidDestinationIp
         pure (DestinationIp val)
-      _ -> error (show b) -- P.fail UnknownField
+      _ -> P.fail UnknownField
     G.H_level -> case equal5 arr off 'l' 'e' 'v' 'e' 'l' of
       1# -> do
         val <- asciiTextField InvalidLevel
         pure (Level val)
-      _ -> error (show b) -- P.fail UnknownField
+      _ -> P.fail UnknownField
     G.H_proto -> case equal5 arr off 'p' 'r' 'o' 't' 'o' of
       1# -> do
         val <- Latin.decWord8 InvalidProtocol
         pure (Protocol val)
-      _ -> error (show b) -- P.fail UnknownField
-    _ -> error (show b) -- P.fail UnknownField
+      _ -> P.fail UnknownField
+    _ -> P.fail UnknownField
   6 -> case G.hashString6 arr off of
     G.H_appcat -> case equal6 arr off 'a' 'p' 'p' 'c' 'a' 't' of
       1# -> do
         val <- asciiTextField InvalidApplicationCategory
         pure (ApplicationCategory val)
-      _ -> error (show b) -- P.fail UnknownField
+      _ -> P.fail UnknownField
     G.H_action -> case equal6 arr off 'a' 'c' 't' 'i' 'o' 'n' of
       1# -> do
         val <- asciiTextField InvalidAction
         pure (Action val)
-      _ -> error (show b) -- P.fail UnknownField
+      _ -> P.fail UnknownField
     G.H_method -> case equal6 arr off 'm' 'e' 't' 'h' 'o' 'd' of
       1# -> do
         val <- asciiTextField InvalidMethod
         pure (Method val)
-      _ -> error (show b) -- P.fail UnknownField
+      _ -> P.fail UnknownField
     G.H_wanout -> case equal6 arr off 'w' 'a' 'n' 'o' 'u' 't' of
       1# -> do
         val <- Latin.decWord64 InvalidWanOut
@@ -261,7 +270,7 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- Latin.decWord64 InvalidLanOut
         pure (LanOut val)
       _ -> P.fail UnknownField
-    _ -> error (show b) -- P.fail UnknownField
+    _ -> P.fail UnknownField
   7 -> case G.hashString7 arr off of
     G.H_poluuid -> case equal7 arr off 'p' 'o' 'l' 'u' 'u' 'i' 'd' of
       1# -> do
@@ -314,7 +323,7 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- Latin.decWord64 InvalidReceivedPackets
         pure (ReceivedPackets val)
       _ -> P.fail UnknownField
-    _ -> error (show b) -- P.fail UnknownField
+    _ -> P.fail UnknownField
   8 -> case G.hashString8 arr off of
     G.H_craction -> case equal8 arr off 'c' 'r' 'a' 'c' 't' 'i' 'o' 'n' of
       1# -> do
@@ -362,7 +371,7 @@ afterEquals !b = case fromIntegral @Int @Word len of
             'd' -> pure (TranslatedDestination ip port)
             _ -> P.fail InvalidTranslationDisposition
       _ -> P.fail UnknownField
-    _ -> error (show b) -- P.fail UnknownField
+    _ -> P.fail UnknownField
   9 -> case G.hashString9 arr off of
     G.H_sessionid -> case equal9 arr off 's' 'e' 's' 's' 'i' 'o' 'n' 'i' 'd' of
       1# -> do
@@ -374,7 +383,7 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidUtmAction
         pure (UtmAction val)
       _ -> P.fail UnknownField
-    _ -> error (show b) -- P.fail UnknownField
+    _ -> P.fail UnknownField
   10 -> case G.hashString10 arr off of
     G.H_srccountry -> case equal10 arr off 's' 'r' 'c' 'c' 'o' 'u' 'n' 't' 'r' 'y' of
       1# -> do
@@ -391,8 +400,8 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidPolicyType
         pure (PolicyType val)
       _ -> P.fail UnknownField
-    _ -> error (show b) -- P.fail UnknownField
-  _ -> error (show b) -- P.fail UnknownField
+    _ -> P.fail UnknownField
+  _ -> P.fail UnknownField
   where
   !(Bytes arr off len) = b
 

@@ -17,6 +17,10 @@ main = do
   testTrafficLocalA
   putStrLn "traffic_forward_A"
   testTrafficForwardA
+  putStrLn "traffic_forward_B"
+  testTrafficForwardB
+  putStrLn "utm_webfilter_A"
+  testUtmWebfilterA
   pure ()
 
 testTrafficLocalA :: IO ()
@@ -53,6 +57,31 @@ testTrafficForwardA = case FGT.decode S.traffic_forward_A of
         FGT.TranslatedSource ip port -> do
           when (ip /= IPv4.fromOctets 192 0 2 3) (fail "wrong transip")
           when (port /= 54400) (fail "wrong transport")
+        _ -> pure ()
+      ) 
+
+testTrafficForwardB :: IO ()
+testTrafficForwardB = case FGT.decode S.traffic_forward_B of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "forward")
+      (fail "wrong subtype")
+    for_ (FGT.fields x)
+      (\case
+        FGT.TranslatedDestination ip port -> do
+          when (ip /= IPv4.fromOctets 192 0 2 200) (fail "wrong tranip")
+          when (port /= 443) (fail "wrong tranport")
+        _ -> pure ()
+      ) 
+
+testUtmWebfilterA :: IO ()
+testUtmWebfilterA = case FGT.decode S.utm_webfilter_A of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "webfilter") (fail "wrong subtype")
+    for_ (FGT.fields x)
+      (\case
+        FGT.Profile name -> when (name /= str "my-profile") (fail "profile")
         _ -> pure ()
       ) 
 

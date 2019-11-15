@@ -58,6 +58,8 @@ data DecodeException
   | InvalidAction
   | InvalidApp
   | InvalidApplicationCategory
+  | InvalidCategory
+  | InvalidCategoryDescription
   | InvalidClientReputationAction
   | InvalidClientReputationLevel
   | InvalidClientReputationScore
@@ -69,18 +71,24 @@ data DecodeException
   | InvalidDestinationPort
   | InvalidDeviceId
   | InvalidDeviceName
+  | InvalidDirection
   | InvalidDuration
+  | InvalidEventType
+  | InvalidHostname
   | InvalidLanIn
   | InvalidLanOut
   | InvalidLevel
   | InvalidLogId
+  | InvalidMessage
   | InvalidMethod
   | InvalidPolicyId
   | InvalidPolicyType
   | InvalidPolicyUuid
+  | InvalidProfile
   | InvalidProtocol
   | InvalidReceivedBytes
   | InvalidReceivedPackets
+  | InvalidRequestType
   | InvalidSentBytes
   | InvalidSentPackets
   | InvalidService
@@ -96,7 +104,9 @@ data DecodeException
   | InvalidTranslationIp
   | InvalidTranslationPort
   | InvalidType
+  | InvalidUser
   | InvalidUtmAction
+  | InvalidUrl
   | InvalidVirtualDomain
   | InvalidWanIn
   | InvalidWanOut
@@ -119,6 +129,8 @@ data Field
   | DestinationPort {-# UNPACK #-} !Word16
   | Direction {-# UNPACK #-} !Bytes
   | Duration {-# UNPACK #-} !Word64
+  | EventType {-# UNPACK #-} !Bytes
+  | Hostname {-# UNPACK #-} !Bytes
   | LanIn {-# UNPACK #-} !Word64
   | LanOut {-# UNPACK #-} !Word64
   | Level {-# UNPACK #-} !Bytes
@@ -127,6 +139,7 @@ data Field
   | PolicyId {-# UNPACK #-} !Word64
   | PolicyType {-# UNPACK #-} !Bytes
   | PolicyUuid {-# UNPACK #-} !Word128
+  | Profile {-# UNPACK #-} !Bytes
   | Protocol {-# UNPACK #-} !Word8 -- ^ IANA Internet Protocol Number
   | ReceivedBytes {-# UNPACK #-} !Word64
   | ReceivedPackets {-# UNPACK #-} !Word64
@@ -143,6 +156,8 @@ data Field
   | TranslatedSource {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
   | TranslatedDestination {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
   | UtmAction {-# UNPACK #-} !Bytes
+  | Url {-# UNPACK #-} !Bytes
+  | User {-# UNPACK #-} !Bytes
   | VirtualDomain {-# UNPACK #-} !Bytes
   | WanIn {-# UNPACK #-} !Word64
   | WanOut {-# UNPACK #-} !Word64
@@ -198,12 +213,10 @@ fieldsParser !b0 = P.isEndOfInput >>= \case
 
 afterEquals :: Bytes -> Parser DecodeException s Field
 afterEquals !b = case fromIntegral @Int @Word len of
-  2 -> case G.hashString2 arr off of
-    G.H_vd -> case equal2 arr off 'v' 'd' of
-      1# -> do
-        val <- asciiTextField InvalidVirtualDomain
-        pure (VirtualDomain val)
-      _ -> P.fail UnknownField
+  2 -> case equal2 arr off 'v' 'd' of
+    1# -> do
+      val <- asciiTextField InvalidVirtualDomain
+      pure (VirtualDomain val)
     _ -> P.fail UnknownField
   3 -> case G.hashString3 arr off of
     G.H_app -> case equal3 arr off 'a' 'p' 'p' of
@@ -211,6 +224,26 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidApp
         pure (App val)
       _ -> P.fail UnknownField
+    G.H_url -> case equal3 arr off 'u' 'r' 'l' of
+      1# -> do
+        val <- asciiTextField InvalidUrl
+        pure (Url val)
+      _ -> P.fail UnknownField
+    G.H_msg -> case equal3 arr off 'm' 's' 'g' of
+      1# -> do
+        val <- asciiTextField InvalidMessage
+        pure (Message val)
+      _ -> P.fail UnknownField
+    G.H_cat -> case equal3 arr off 'c' 'a' 't' of
+      1# -> do
+        val <- Latin.decWord64 InvalidCategory
+        pure (Category val)
+      _ -> P.fail UnknownField
+    _ -> P.fail UnknownField
+  4 -> case equal4 arr off 'u' 's' 'e' 'r' of
+    1# -> do
+      val <- asciiTextField InvalidUser
+      pure (User val)
     _ -> P.fail UnknownField
   5 -> case G.hashString5 arr off of
     G.H_wanin -> case equal5 arr off 'w' 'a' 'n' 'i' 'n' of
@@ -278,6 +311,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         _ <- asciiTextField InvalidPolicyUuid
         pure (PolicyUuid 0)
       _ -> P.fail UnknownField
+    G.H_reqtype -> case equal7 arr off 'r' 'e' 'q' 't' 'y' 'p' 'e' of
+      1# -> do
+        val <- asciiTextField InvalidRequestType
+        pure (RequestType val)
+      _ -> P.fail UnknownField
     G.H_crscore -> case equal7 arr off 'c' 'r' 's' 'c' 'o' 'r' 'e' of
       1# -> do
         val <- Latin.decWord64 InvalidClientReputationScore
@@ -287,6 +325,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       1# -> do
         val <- asciiTextField InvalidClientReputationLevel
         pure (ClientReputationLevel val)
+      _ -> P.fail UnknownField
+    G.H_catdesc -> case equal7 arr off 'c' 'a' 't' 'd' 'e' 's' 'c' of
+      1# -> do
+        val <- asciiTextField InvalidCategoryDescription
+        pure (CategoryDescription val)
       _ -> P.fail UnknownField
     G.H_srcintf -> case equal7 arr off 's' 'r' 'c' 'i' 'n' 't' 'f' of
       1# -> do
@@ -323,8 +366,18 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- Latin.decWord64 InvalidReceivedPackets
         pure (ReceivedPackets val)
       _ -> P.fail UnknownField
+    G.H_profile -> case equal7 arr off 'p' 'r' 'o' 'f' 'i' 'l' 'e' of
+      1# -> do
+        val <- asciiTextField InvalidProfile
+        pure (Profile val)
+      _ -> P.fail UnknownField
     _ -> P.fail UnknownField
   8 -> case G.hashString8 arr off of
+    G.H_hostname -> case equal8 arr off 'h' 'o' 's' 't' 'n' 'a' 'm' 'e' of
+      1# -> do
+        val <- asciiTextField InvalidHostname
+        pure (Hostname val)
+      _ -> P.fail UnknownField
     G.H_craction -> case equal8 arr off 'c' 'r' 'a' 'c' 't' 'i' 'o' 'n' of
       1# -> do
         val <- asciiTextField InvalidClientReputationAction
@@ -360,16 +413,21 @@ afterEquals !b = case fromIntegral @Int @Word len of
         'n' -> do
           Latin.char3 InvalidTranslationDisposition 'o' 'o' 'p'
           pure TranslatedNone
-        c -> do
+        'd' -> do
+          Latin.char4 InvalidTranslationDisposition 'n' 'a' 't' ' '
+          Latin.char7 InvalidTranslationDisposition 't' 'r' 'a' 'n' 'i' 'p' '='
+          !ip <- IPv4.parserUtf8Bytes InvalidTranslationIp
+          Latin.char10 InvalidTranslationDisposition ' ' 't' 'r' 'a' 'n' 'p' 'o' 'r' 't' '='
+          !port <- Latin.decWord16 InvalidTranslationPort
+          pure (TranslatedDestination ip port)
+        's' -> do
           Latin.char4 InvalidTranslationDisposition 'n' 'a' 't' ' '
           Latin.char8 InvalidTranslationDisposition 't' 'r' 'a' 'n' 's' 'i' 'p' '='
           !ip <- IPv4.parserUtf8Bytes InvalidTranslationIp
           Latin.char11 InvalidTranslationDisposition ' ' 't' 'r' 'a' 'n' 's' 'p' 'o' 'r' 't' '='
           !port <- Latin.decWord16 InvalidTranslationPort
-          case c of
-            's' -> pure (TranslatedSource ip port)
-            'd' -> pure (TranslatedDestination ip port)
-            _ -> P.fail InvalidTranslationDisposition
+          pure (TranslatedSource ip port)
+        _ -> P.fail InvalidTranslationDisposition
       _ -> P.fail UnknownField
     _ -> P.fail UnknownField
   9 -> case G.hashString9 arr off of
@@ -378,10 +436,20 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- Latin.decWord64 InvalidSessionId
         pure (SessionId val)
       _ -> P.fail UnknownField
+    G.H_eventtype -> case equal9 arr off 'e' 'v' 'e' 'n' 't' 't' 'y' 'p' 'e' of
+      1# -> do
+        val <- asciiTextField InvalidEventType
+        pure (EventType val)
+      _ -> P.fail UnknownField
     G.H_utmaction -> case equal9 arr off 'u' 't' 'm' 'a' 'c' 't' 'i' 'o' 'n' of
       1# -> do
         val <- asciiTextField InvalidUtmAction
         pure (UtmAction val)
+      _ -> P.fail UnknownField
+    G.H_direction -> case equal9 arr off 'd' 'i' 'r' 'e' 'c' 't' 'i' 'o' 'n' of
+      1# -> do
+        val <- asciiTextField InvalidDirection
+        pure (Direction val)
       _ -> P.fail UnknownField
     _ -> P.fail UnknownField
   10 -> case G.hashString10 arr off of
@@ -408,6 +476,7 @@ afterEquals !b = case fromIntegral @Int @Word len of
 unquotedFieldAndSpace :: e -> Parser e s Bytes
 unquotedFieldAndSpace e = P.takeTrailedBy e (c2w ' ')
 
+
 -- Field is optionally surrounded by quotes. This does not
 -- consume a trailing space.
 asciiTextField :: e -> Parser e s Bytes
@@ -428,6 +497,16 @@ equal3 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) =
   eqChar# (indexCharArray# arr (off +# 1#)) b
   `andI#`
   eqChar# (indexCharArray# arr (off +# 2#)) c
+
+equal4 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Int#
+equal4 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) =
+  eqChar# (indexCharArray# arr off) a
+  `andI#`
+  eqChar# (indexCharArray# arr (off +# 1#)) b
+  `andI#`
+  eqChar# (indexCharArray# arr (off +# 2#)) c
+  `andI#`
+  eqChar# (indexCharArray# arr (off +# 3#)) d
 
 equal5 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Int#
 equal5 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) =
@@ -533,4 +612,3 @@ equal10 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g
 
 c2w :: Char -> Word8
 c2w = fromIntegral . ord
-

@@ -28,7 +28,7 @@ import qualified System.IO as IO
 
 -- Intentionally omitted:
 --
--- * vd: only one key of this length 
+-- * referralurl: only key of length 11
 -- * transip and transport: always follow trandisp=snat
 -- * tranip and tranport: always follow trandisp=dnat
 allKeywords :: [String]
@@ -45,18 +45,25 @@ allKeywords =
   , "date"
   , "devid"
   , "devname"
+  , "dhcp_msg"
   , "direction"
   , "dstcountry"
   , "dstintf"
   , "dstip"
   , "dstport"
   , "duration"
+  , "error"
   , "eventtype"
   , "hostname"
+  , "interface"
+  , "ip"
   , "lanin"
   , "lanout"
+  , "lease"
   , "level"
+  , "logdesc"
   , "logid"
+  , "mac"
   , "method"
   , "msg"
   , "policyid"
@@ -84,6 +91,7 @@ allKeywords =
   , "utmaction"
   , "wanin"
   , "wanout"
+  , "vd"
   ]
 
 data Algorithm = AlgoTwo !Int !Int | AlgoFour !Int !Int !Int !Int

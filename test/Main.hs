@@ -21,6 +21,12 @@ main = do
   testTrafficForwardB
   putStrLn "utm_webfilter_A"
   testUtmWebfilterA
+  putStrLn "utm_webfilter_B"
+  testUtmWebfilterB
+  putStrLn "utm_webfilter_C"
+  testUtmWebfilterC
+  putStrLn "event_system_A"
+  testEventSystemA
   pure ()
 
 testTrafficLocalA :: IO ()
@@ -84,6 +90,49 @@ testUtmWebfilterA = case FGT.decode S.utm_webfilter_A of
         FGT.Profile name -> when (name /= str "my-profile") (fail "profile")
         _ -> pure ()
       ) 
+
+testUtmWebfilterB :: IO ()
+testUtmWebfilterB = case FGT.decode S.utm_webfilter_B of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "webfilter") (fail "wrong subtype")
+    for_ (FGT.fields x)
+      (\case
+        FGT.Profile name -> when (name /= str "default") (fail "profile")
+        FGT.Error name -> when (name /= str "DNS query timeout") (fail "error")
+        _ -> pure ()
+      )
+
+testUtmWebfilterC :: IO ()
+testUtmWebfilterC = case FGT.decode S.utm_webfilter_C of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "webfilter") (fail "wrong subtype")
+    for_ (FGT.fields x)
+      (\case
+        FGT.Profile name -> when (name /= str "prof") (fail "profile")
+        FGT.ReferralUrl name -> when
+          (name /= str "http://www.example.org/get/started")
+          (fail "referralurl")
+        _ -> pure ()
+      )
+
+testEventSystemA :: IO ()
+testEventSystemA = case FGT.decode S.event_system_A of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "system") (fail "wrong subtype")
+    for_ (FGT.fields x)
+      (\case
+        FGT.Profile name -> when (name /= str "prof") (fail "profile")
+        FGT.DhcpMessage name -> when (name /= str "Ack") (fail "dhcp_message")
+        FGT.Interface name ->
+          when (name /= str "vlan-11-trust") (fail "interface")
+        FGT.LogDescription name ->
+          when (name /= str "DHCP Ack log") (fail "logdesc")
+        FGT.Lease n -> when (n /= 3600) (fail "lease")
+        _ -> pure ()
+      )
 
 str :: String -> Bytes
 str = Bytes.fromAsciiString

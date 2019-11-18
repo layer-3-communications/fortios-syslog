@@ -15,18 +15,25 @@ module Fortios.Generated
   , pattern H_date
   , pattern H_devid
   , pattern H_devname
+  , pattern H_dhcp_msg
   , pattern H_direction
   , pattern H_dstcountry
   , pattern H_dstintf
   , pattern H_dstip
   , pattern H_dstport
   , pattern H_duration
+  , pattern H_error
   , pattern H_eventtype
   , pattern H_hostname
+  , pattern H_interface
+  , pattern H_ip
   , pattern H_lanin
   , pattern H_lanout
+  , pattern H_lease
   , pattern H_level
+  , pattern H_logdesc
   , pattern H_logid
+  , pattern H_mac
   , pattern H_method
   , pattern H_msg
   , pattern H_policyid
@@ -52,9 +59,11 @@ module Fortios.Generated
   , pattern H_url
   , pattern H_user
   , pattern H_utmaction
+  , pattern H_vd
   , pattern H_wanin
   , pattern H_wanout
 
+  , hashString2
   , hashString3
   , hashString4
   , hashString5
@@ -75,7 +84,7 @@ pattern H_action :: Word
 pattern H_action = 2
 
 pattern H_app :: Word
-pattern H_app = 0
+pattern H_app = 2
 
 pattern H_appcat :: Word
 pattern H_appcat = 3
@@ -87,16 +96,16 @@ pattern H_catdesc :: Word
 pattern H_catdesc = 12
 
 pattern H_countweb :: Word
-pattern H_countweb = 5
+pattern H_countweb = 3
 
 pattern H_craction :: Word
-pattern H_craction = 4
+pattern H_craction = 0
 
 pattern H_crlevel :: Word
-pattern H_crlevel = 29
+pattern H_crlevel = 13
 
 pattern H_crscore :: Word
-pattern H_crscore = 19
+pattern H_crscore = 3
 
 pattern H_date :: Word
 pattern H_date = 0
@@ -105,13 +114,16 @@ pattern H_devid :: Word
 pattern H_devid = 4
 
 pattern H_devname :: Word
-pattern H_devname = 27
+pattern H_devname = 11
+
+pattern H_dhcp_msg :: Word
+pattern H_dhcp_msg = 4
 
 pattern H_direction :: Word
-pattern H_direction = 0
+pattern H_direction = 4
 
 pattern H_dstcountry :: Word
-pattern H_dstcountry = 1
+pattern H_dstcountry = 3
 
 pattern H_dstintf :: Word
 pattern H_dstintf = 6
@@ -120,16 +132,25 @@ pattern H_dstip :: Word
 pattern H_dstip = 12
 
 pattern H_dstport :: Word
-pattern H_dstport = 17
+pattern H_dstport = 1
 
 pattern H_duration :: Word
-pattern H_duration = 2
+pattern H_duration = 6
+
+pattern H_error :: Word
+pattern H_error = 10
 
 pattern H_eventtype :: Word
 pattern H_eventtype = 1
 
 pattern H_hostname :: Word
-pattern H_hostname = 6
+pattern H_hostname = 5
+
+pattern H_interface :: Word
+pattern H_interface = 0
+
+pattern H_ip :: Word
+pattern H_ip = 1
 
 pattern H_lanin :: Word
 pattern H_lanin = 8
@@ -137,11 +158,20 @@ pattern H_lanin = 8
 pattern H_lanout :: Word
 pattern H_lanout = 0
 
+pattern H_lease :: Word
+pattern H_lease = 5
+
 pattern H_level :: Word
 pattern H_level = 0
 
+pattern H_logdesc :: Word
+pattern H_logdesc = 4
+
 pattern H_logid :: Word
 pattern H_logid = 11
+
+pattern H_mac :: Word
+pattern H_mac = 5
 
 pattern H_method :: Word
 pattern H_method = 5
@@ -150,13 +180,13 @@ pattern H_msg :: Word
 pattern H_msg = 3
 
 pattern H_policyid :: Word
-pattern H_policyid = 7
+pattern H_policyid = 9
 
 pattern H_policytype :: Word
 pattern H_policytype = 0
 
 pattern H_poluuid :: Word
-pattern H_poluuid = 11
+pattern H_poluuid = 27
 
 pattern H_profile :: Word
 pattern H_profile = 16
@@ -165,7 +195,7 @@ pattern H_proto :: Word
 pattern H_proto = 1
 
 pattern H_rcvdbyte :: Word
-pattern H_rcvdbyte = 0
+pattern H_rcvdbyte = 1
 
 pattern H_rcvdpkt :: Word
 pattern H_rcvdpkt = 28
@@ -174,10 +204,10 @@ pattern H_reqtype :: Word
 pattern H_reqtype = 14
 
 pattern H_sentbyte :: Word
-pattern H_sentbyte = 3
+pattern H_sentbyte = 8
 
 pattern H_sentpkt :: Word
-pattern H_sentpkt = 25
+pattern H_sentpkt = 9
 
 pattern H_service :: Word
 pattern H_service = 10
@@ -195,7 +225,7 @@ pattern H_srcip :: Word
 pattern H_srcip = 7
 
 pattern H_srcport :: Word
-pattern H_srcport = 13
+pattern H_srcport = 29
 
 pattern H_subtype :: Word
 pattern H_subtype = 0
@@ -204,19 +234,22 @@ pattern H_time :: Word
 pattern H_time = 3
 
 pattern H_trandisp :: Word
-pattern H_trandisp = 1
+pattern H_trandisp = 2
 
 pattern H_type :: Word
 pattern H_type = 4
 
 pattern H_url :: Word
-pattern H_url = 2
+pattern H_url = 0
 
 pattern H_user :: Word
 pattern H_user = 2
 
 pattern H_utmaction :: Word
 pattern H_utmaction = 2
+
+pattern H_vd :: Word
+pattern H_vd = 0
 
 pattern H_wanin :: Word
 pattern H_wanin = 3
@@ -225,28 +258,31 @@ pattern H_wanout :: Word
 pattern H_wanout = 4
 
 
+hashString2 :: ByteArray -> Int -> Word
+hashString2 arr off = rem (duohash 0 31729 28075 (Bytes arr off 2)) 2
+
 hashString3 :: ByteArray -> Int -> Word
-hashString3 arr off = rem (duohash 0 21764 13805 (Bytes arr off 2)) 4
+hashString3 arr off = rem (duohash 0 7442 59331 (Bytes arr off 2)) 8
 
 hashString4 :: ByteArray -> Int -> Word
-hashString4 arr off = rem (duohash 0 18555 48644 (Bytes arr off 4)) 8
+hashString4 arr off = rem (duohash 0 13603 35020 (Bytes arr off 4)) 8
 
 hashString5 :: ByteArray -> Int -> Word
-hashString5 arr off = rem (duohash 0 46801 2147 (Bytes arr off 4)) 16
+hashString5 arr off = rem (duohash 0 57777 44115 (Bytes arr off 4)) 16
 
 hashString6 :: ByteArray -> Int -> Word
-hashString6 arr off = rem (duohash 0 27220 24325 (Bytes arr off 6)) 8
+hashString6 arr off = rem (duohash 0 1172 18413 (Bytes arr off 6)) 8
 
 hashString7 :: ByteArray -> Int -> Word
-hashString7 arr off = rem (duohash 0 38241 63810 (Bytes arr off 6)) 32
+hashString7 arr off = rem (duohash 0 53425 3330 (Bytes arr off 6)) 32
 
 hashString8 :: ByteArray -> Int -> Word
-hashString8 arr off = rem (quadrohash 0 25645 17323 46008 37864 (Bytes arr off 8)) 8
+hashString8 arr off = rem (quadrohash 0 60599 21044 9097 31891 (Bytes arr off 8)) 16
 
 hashString9 :: ByteArray -> Int -> Word
-hashString9 arr off = rem (duohash 0 39367 32490 (Bytes arr off 8)) 4
+hashString9 arr off = rem (duohash 0 33599 18790 (Bytes arr off 8)) 8
 
 hashString10 :: ByteArray -> Int -> Word
-hashString10 arr off = rem (duohash 0 49403 21765 (Bytes arr off 10)) 4
+hashString10 arr off = rem (duohash 0 16757 28723 (Bytes arr off 10)) 4
 
 

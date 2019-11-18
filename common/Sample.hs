@@ -5,6 +5,9 @@ module Sample
   , traffic_forward_A
   , traffic_forward_B
   , utm_webfilter_A
+  , utm_webfilter_B
+  , utm_webfilter_C
+  , event_system_A
   ) where
 
 import Data.Bytes (Bytes)
@@ -79,4 +82,41 @@ utm_webfilter_A = pack $ concat
   , "reqtype=direct url=\"/example/path.txt\" sentbyte=93 rcvdbyte=0 "
   , "direction=outgoing msg=\"URL belongs to an allowed category in policy\" "
   , "method=domain cat=52 catdesc=\"Information Technology\""
+  ]
+
+utm_webfilter_B :: Bytes
+utm_webfilter_B = pack $ concat
+  [ "date=2019-11-18 time=14:11:36 devname=FGT-NY-Node0 devid=FGT-NY "
+  , "logid=0318012800 type=utm subtype=webfilter eventtype=ftgd_err "
+  , "level=error vd=root policyid=5 sessionid=106167548 user=\"\" "
+  , "srcip=192.0.2.67 srcport=58737 srcintf=\"vlan-115\" dstip=192.0.2.100 "
+  , "dstport=53 dstintf=\"port59\" proto=17 service=\"DNS\" "
+  , "hostname=\"example.com\" profile=\"default\" action=blocked "
+  , "reqtype=direct sentbyte=0 rcvdbyte=0 direction=outgoing "
+  , "msg=\"A rating error occurs\" error=\"DNS query timeout\""
+  ]
+
+utm_webfilter_C :: Bytes
+utm_webfilter_C = pack $ concat
+  [ "date=2019-11-18 time=14:11:35 devname=FGT-NY-Node0 devid=FGT-NY "
+  , "logid=0317013312 type=utm subtype=webfilter eventtype=ftgd_allow "
+  , "level=notice vd=root policyid=6 sessionid=107172027 user=\"\" "
+  , "srcip=192.0.2.3 srcport=52992 srcintf=\"vlan-19-trust\" "
+  , "dstip=192.0.2.54 dstport=80 dstintf=\"port91\" proto=6 "
+  , "service=\"HTTP\" hostname=\"www.example.com\" "
+  , "profile=\"prof\" action=passthrough reqtype=referral "
+  , "url=\"/the/path.php?name=yes\" "
+  , "referralurl=\"http://www.example.org/get/started\" "
+  , "sentbyte=38053 rcvdbyte=126033 direction=outgoing "
+  , "msg=\"URL belongs to an allowed category in policy\" "
+  , "method=domain cat=42 catdesc=\"Shopping\""
+  ]
+
+event_system_A :: Bytes
+event_system_A = pack $ concat
+  [ "date=2019-11-18 time=14:44:07 devname=FGT-NY-Node0 devid=FGT-NY "
+  , "logid=0100026001 type=event subtype=system level=information vd=root "
+  , "logdesc=\"DHCP Ack log\" interface=\"vlan-11-trust\" dhcp_msg=\"Ack\" "
+  , "mac=D1:1F:B1:41:FB:1F ip=192.0.2.97 lease=3600 hostname=\"SomeHost\" "
+  , "msg=\"DHCP server sends a DHCPACK\""
   ]

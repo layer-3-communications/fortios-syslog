@@ -15,10 +15,14 @@ main = do
   putStrLn "Start"
   putStrLn "traffic_local_A"
   testTrafficLocalA
+  putStrLn "traffic_local_B"
+  testTrafficLocalB
   putStrLn "traffic_forward_A"
   testTrafficForwardA
   putStrLn "traffic_forward_B"
   testTrafficForwardB
+  putStrLn "traffic_forward_C"
+  testTrafficForwardC
   putStrLn "utm_webfilter_A"
   testUtmWebfilterA
   putStrLn "utm_webfilter_B"
@@ -48,7 +52,22 @@ testTrafficLocalA = case FGT.decode S.traffic_local_A of
         FGT.SourceIp v ->
           when (v /= IP.ipv4 192 0 2 12) (fail "wrong srcip")
         _ -> pure ()
-      ) 
+      )
+
+testTrafficLocalB :: IO ()
+testTrafficLocalB = case FGT.decode S.traffic_local_B of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.type_ x /= str "traffic")
+      (fail "wrong type")
+    when (FGT.deviceId x /= str "FG200ABC00001")
+      (fail "wrong device id")
+    for_ (FGT.fields x)
+      (\case
+        FGT.SourceIp v ->
+          when (v /= IP.ipv6 0x2001 0x0DB8 0x0 0x0 0x0 0x0 0x1 0x2) (fail "wrong srcip")
+        _ -> pure ()
+      )
 
 testTrafficForwardA :: IO ()
 testTrafficForwardA = case FGT.decode S.traffic_forward_A of
@@ -64,7 +83,7 @@ testTrafficForwardA = case FGT.decode S.traffic_forward_A of
           when (ip /= IPv4.fromOctets 192 0 2 3) (fail "wrong transip")
           when (port /= 54400) (fail "wrong transport")
         _ -> pure ()
-      ) 
+      )
 
 testTrafficForwardB :: IO ()
 testTrafficForwardB = case FGT.decode S.traffic_forward_B of
@@ -78,7 +97,21 @@ testTrafficForwardB = case FGT.decode S.traffic_forward_B of
           when (ip /= IPv4.fromOctets 192 0 2 200) (fail "wrong tranip")
           when (port /= 443) (fail "wrong tranport")
         _ -> pure ()
-      ) 
+      )
+
+testTrafficForwardC :: IO ()
+testTrafficForwardC = case FGT.decode S.traffic_forward_C of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "forward")
+      (fail "wrong subtype")
+    for_ (FGT.fields x)
+      (\case
+        FGT.OsName n -> when (n /= str "Windows") (fail "wrong osname")
+        FGT.EventTime n -> when (n /= 1574989980897483985) (fail "wrong eventtime")
+        FGT.TimeZone n -> when (n /= (-600)) (fail "wrong tz")
+        _ -> pure ()
+      )
 
 testUtmWebfilterA :: IO ()
 testUtmWebfilterA = case FGT.decode S.utm_webfilter_A of
@@ -89,7 +122,7 @@ testUtmWebfilterA = case FGT.decode S.utm_webfilter_A of
       (\case
         FGT.Profile name -> when (name /= str "my-profile") (fail "profile")
         _ -> pure ()
-      ) 
+      )
 
 testUtmWebfilterB :: IO ()
 testUtmWebfilterB = case FGT.decode S.utm_webfilter_B of

@@ -2,8 +2,10 @@
 
 module Sample
   ( traffic_local_A
+  , traffic_local_B
   , traffic_forward_A
   , traffic_forward_B
+  , traffic_forward_C
   , utm_webfilter_A
   , utm_webfilter_B
   , utm_webfilter_C
@@ -45,6 +47,22 @@ traffic_local_A = pack $ concat
   , "appcat=\"ex-cat\" crscore=30 craction=193181 crlevel=high"
   ]
 
+traffic_local_B :: Bytes
+traffic_local_B = pack $ concat
+  [ "date=2019-11-28 time=19:13:00 devname=\"FG200ABC00001\" "
+  , "devid=\"FG200ABC00001\" logid=\"0001000014\" type=\"traffic\" "
+  , "subtype=\"local\" level=\"notice\" vd=\"root\" "
+  , "eventtime=1574989980832601873 tz=\"-0700\" srcip=2001:db8::0001:0002 "
+  , "srcport=5353 srcintf=\"port3\" srcintfrole=\"lan\" dstip=2001:db8::0003:0004 "
+  , "dstport=5353 dstintf=\"unknown0\" dstintfrole=\"undefined\" sessionid=5208314 "
+  , "proto=17 action=\"deny\" policyid=0 policytype=\"local-in-policy6\" "
+  , "service=\"udp/5353\" trandisp=\"noop\" app=\"udp/5353\" duration=0 "
+  , "sentbyte=0 rcvdbyte=0 sentpkt=0 rcvdpkt=0 appcat=\"unscanned\" "
+  , "srchwvendor=\"Dell\" osname=\"Windows\" srcswversion=\"10\" "
+  , "mastersrcmac=\"de:ad:be:ef:00:01\" srcmac=\"be:ef:de:ad:02:03\" "
+  , "srcserver=0"
+  ]
+
 traffic_forward_A :: Bytes
 traffic_forward_A = pack $ concat
   [ "date=2019-11-08 time=09:50:39 devname=FGT5-NY-Node0 devid=FGT5-NY "
@@ -69,6 +87,27 @@ traffic_forward_B = pack $ concat
   , "policytype=policy dstcountry=\"United States\" srccountry=\"United States\" "
   , "trandisp=dnat tranip=192.0.2.200 tranport=443 service=\"HTTPS\" duration=97 "
   , "sentbyte=1204 rcvdbyte=935 sentpkt=9 rcvdpkt=6 appcat=\"unscanned\""
+  ]
+
+traffic_forward_C :: Bytes
+traffic_forward_C = pack $ concat
+  [ "date=2019-11-28 time=19:13:00 devname=\"FG200ZDJ12345678\" "
+  , "devid=\"FG200ZDJ12345678\" logid=\"0000000020\" type=\"traffic\" "
+  , "subtype=\"forward\" level=\"notice\" vd=\"root\" "
+  , "eventtime=1574989980897483985 tz=\"-0600\" srcip=192.0.2.201 "
+  , "srcname=\"WIN10-JK\" srcport=41484 srcintf=\"port1\" srcintfrole=\"lan\" "
+  , "dstip=192.0.2.21 dstport=443 dstintf=\"wan1\" dstintfrole=\"wan\" "
+  , "poluuid=\"4b8108d8-0315-61f0-042a-c1fdfa3e8910\" "
+  , "dstinetsvc=\"Example-Web\" sessionid=96952295 proto=6 action=\"accept\" "
+  , "policyid=69 policytype=\"policy\" dstcountry=\"United States\" "
+  , "srccountry=\"Reserved\" trandisp=\"snat\" transip=192.0.2.23 "
+  , "transport=41484 appid=34039 app=\"HTTP.BROWSER_Chrome\" "
+  , "appcat=\"Web.Client\" apprisk=\"elevated\" "
+  , "applist=\"fizz-default_ac_security\" duration=521971 sentbyte=7625130 "
+  , "rcvdbyte=1212550 sentpkt=24469 rcvdpkt=10100 vwlid=0 sentdelta=4745 "
+  , "rcvddelta=997 osname=\"Windows\" srcswversion=\"10 / 2016\" "
+  , "mastersrcmac=\"de:ad:be:ef:00:00\" srcmac=\"be:ef:be:ef:ab:cd\" "
+  , "srcserver=0"
   ]
 
 utm_webfilter_A :: Bytes

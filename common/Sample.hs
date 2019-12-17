@@ -6,6 +6,7 @@ module Sample
   , traffic_forward_A
   , traffic_forward_B
   , traffic_forward_C
+  , traffic_forward_D
   , utm_webfilter_A
   , utm_webfilter_B
   , utm_webfilter_C
@@ -108,6 +109,21 @@ traffic_forward_C = pack $ concat
   , "rcvddelta=997 osname=\"Windows\" srcswversion=\"10 / 2016\" "
   , "mastersrcmac=\"de:ad:be:ef:00:00\" srcmac=\"be:ef:be:ef:ab:cd\" "
   , "srcserver=0"
+  ]
+
+traffic_forward_D :: Bytes
+traffic_forward_D = pack $ concat
+  [ "date=2019-12-17 time=00:14:07 devname=example-fgt devid=FGT-NY "
+  , "logid=0000000013 type=traffic subtype=forward level=notice vd=root "
+  , "srcip=192.0.2.211 srcport=63455 srcintf=\"Vlan7\" dstip=192.0.2.103 "
+  , "dstport=443 dstintf=\"port7\" poluuid=8c1eb501-5e2d-61e1-280a-"
+  , "58c0d8e15337 sessionid=3799706082 proto=6 action=close policyid=9 "
+  , "policytype=policy dstcountry=\"United States\" srccountry=\"Reserved\" "
+  , "trandisp=snat transip=192.0.2.115 transport=63455 service=\"HTTPS\" "
+  , "duration=241 sentbyte=2910 rcvdbyte=2854 sentpkt=22 rcvdpkt=17 "
+  , "appcat=\"unscanned\" wanin=2162 wanout=1758 lanin=1758 lanout=2162 "
+  , "devtype=\"Router/NAT Device\" mastersrcmac=de:ad:be:ef:12:34 "
+  , "srcmac=ab:cd:ef:01:23:45"
   ]
 
 utm_webfilter_A :: Bytes

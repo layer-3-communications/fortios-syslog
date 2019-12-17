@@ -28,6 +28,8 @@ import qualified System.IO as IO
 
 -- Intentionally omitted:
 --
+-- * date, time, devname, devid, logid, type, subtype:
+--   These are opening fields in a fixed order.
 -- * transip and transport: always follow trandisp=snat
 -- * tranip and tranport: always follow trandisp=dnat
 allKeywords :: [String]
@@ -44,9 +46,7 @@ allKeywords =
   , "craction"
   , "crlevel"
   , "crscore"
-  , "date"
-  , "devid"
-  , "devname"
+  , "devtype"
   , "dhcp_msg"
   , "direction"
   , "dstcountry"
@@ -67,7 +67,6 @@ allKeywords =
   , "lease"
   , "level"
   , "logdesc"
-  , "logid"
   , "mac"
   , "mastersrcmac"
   , "method"
@@ -98,10 +97,7 @@ allKeywords =
   , "srcport"
   , "srcserver"
   , "srcswversion"
-  , "subtype"
-  , "time"
   , "trandisp"
-  , "type"
   , "tz"
   , "url"
   , "user"

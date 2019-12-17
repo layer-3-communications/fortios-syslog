@@ -28,3 +28,6 @@ test_results/**
 scripts/Generate
 scripts/Generate.hi
 scripts/Generate.o
+scripts/validate
+scripts/validate.hi
+scripts/validate.o

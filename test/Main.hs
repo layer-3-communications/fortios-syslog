@@ -23,6 +23,8 @@ main = do
   testTrafficForwardB
   putStrLn "traffic_forward_C"
   testTrafficForwardC
+  putStrLn "traffic_forward_D"
+  testTrafficForwardD
   putStrLn "utm_webfilter_A"
   testUtmWebfilterA
   putStrLn "utm_webfilter_B"
@@ -110,6 +112,19 @@ testTrafficForwardC = case FGT.decode S.traffic_forward_C of
         FGT.OsName n -> when (n /= str "Windows") (fail "wrong osname")
         FGT.EventTime n -> when (n /= 1574989980897483985) (fail "wrong eventtime")
         FGT.TimeZone n -> when (n /= (-600)) (fail "wrong tz")
+        _ -> pure ()
+      )
+
+testTrafficForwardD :: IO ()
+testTrafficForwardD = case FGT.decode S.traffic_forward_C of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "forward")
+      (fail "wrong subtype")
+    for_ (FGT.fields x)
+      (\case
+        FGT.DeviceType n -> when (n /= str "Router/Nat Device")
+          (fail "wrong devtype")
         _ -> pure ()
       )
 

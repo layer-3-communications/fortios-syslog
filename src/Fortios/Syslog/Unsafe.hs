@@ -77,6 +77,7 @@ data DecodeException
   | InvalidDestinationPort
   | InvalidDeviceId
   | InvalidDeviceName
+  | InvalidDeviceType
   | InvalidDhcpMessage
   | InvalidDirection
   | InvalidDuration
@@ -169,6 +170,7 @@ data Field
   | DestinationInternetService {-# UNPACK #-} !Bytes
   | DestinationIp {-# UNPACK #-} !IP
   | DestinationPort {-# UNPACK #-} !Word16
+  | DeviceType {-# UNPACK #-} !Bytes
   | DhcpMessage {-# UNPACK #-} !Bytes
   | Direction {-# UNPACK #-} !Bytes
   | Duration {-# UNPACK #-} !Word64
@@ -423,6 +425,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         -- TODO: this is totally wrong
         _ <- asciiTextField InvalidPolicyUuid
         pure (PolicyUuid 0)
+      _ -> P.fail UnknownField7
+    G.H_devtype -> case zequal7 arr off 'd' 'e' 'v' 't' 'y' 'p' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidDeviceType
+        pure (DeviceType val)
       _ -> P.fail UnknownField7
     G.H_srcname -> case zequal7 arr off 's' 'r' 'c' 'n' 'a' 'm' 'e' of
       0# -> do

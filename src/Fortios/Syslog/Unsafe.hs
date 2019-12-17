@@ -57,6 +57,7 @@ data DecodeException
   | ExpectedType
   | IncompleteKey
   | InvalidAction
+  | InvalidAlert
   | InvalidApp
   | InvalidApplicationCategory
   | InvalidApplicationId
@@ -69,6 +70,7 @@ data DecodeException
   | InvalidClientReputationScore
   | InvalidCountWeb
   | InvalidDate
+  | InvalidDescription
   | InvalidDestinationCountry
   | InvalidDestinationInterface
   | InvalidDestinationInterfaceRole
@@ -98,6 +100,7 @@ data DecodeException
   | InvalidMessage
   | InvalidMethod
   | InvalidOsName
+  | InvalidOsVersion
   | InvalidPolicyId
   | InvalidPolicyType
   | InvalidPolicyUuid
@@ -156,6 +159,7 @@ data DecodeException
 
 data Field
   = Action {-# UNPACK #-} !Bytes
+  | Alert {-# UNPACK #-} !Word64
   | App {-# UNPACK #-} !Bytes
   | ApplicationCategory {-# UNPACK #-} !Bytes
   | ApplicationId {-# UNPACK #-} !Word64
@@ -167,6 +171,7 @@ data Field
   | ClientReputationLevel {-# UNPACK #-} !Bytes
   | ClientReputationAction {-# UNPACK #-} !Bytes
   | CountWeb {-# UNPACK #-} !Word64
+  | Description {-# UNPACK #-} !Bytes
   | DestinationCountry {-# UNPACK #-} !Bytes
   | DestinationInterface {-# UNPACK #-} !Bytes
   | DestinationInterfaceRole {-# UNPACK #-} !Bytes
@@ -193,6 +198,7 @@ data Field
   | Message {-# UNPACK #-} !Bytes
   | Method {-# UNPACK #-} !Bytes
   | OsName {-# UNPACK #-} !Bytes
+  | OsVersion {-# UNPACK #-} !Bytes
   | PolicyId {-# UNPACK #-} !Word64
   | PolicyType {-# UNPACK #-} !Bytes
   | PolicyUuid {-# UNPACK #-} !Word128
@@ -330,16 +336,28 @@ afterEquals !b = case fromIntegral @Int @Word len of
         pure (Category val)
       _ -> P.fail UnknownField3
     _ -> P.fail UnknownField3
-  4 -> case zequal4 arr off 'u' 's' 'e' 'r' of
-    0# -> do
-      val <- asciiTextField InvalidUser
-      pure (User val)
+  4 -> case G.hashString4 arr off of
+    G.H_user -> case zequal4 arr off 'u' 's' 'e' 'r' of
+      0# -> do
+        val <- asciiTextField InvalidUser
+        pure (User val)
+      _ -> P.fail UnknownField4
+    G.H_desc -> case zequal4 arr off 'd' 'e' 's' 'c' of
+      0# -> do
+        val <- asciiTextField InvalidDescription
+        pure (Description val)
+      _ -> P.fail UnknownField4
     _ -> P.fail UnknownField4
   5 -> case G.hashString5 arr off of
     G.H_group -> case zequal5 arr off 'g' 'r' 'o' 'u' 'p' of
       0# -> do
         val <- asciiTextField InvalidGroup
         pure (Group val)
+      _ -> P.fail UnknownField5
+    G.H_alert -> case zequal5 arr off 'a' 'l' 'e' 'r' 't' of
+      0# -> do
+        val <- Latin.decWord64 InvalidAlert
+        pure (Alert val)
       _ -> P.fail UnknownField5
     G.H_vwlid -> case zequal5 arr off 'v' 'w' 'l' 'i' 'd' of
       0# -> do
@@ -590,6 +608,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField8
     _ -> P.fail UnknownField8
   9 -> case G.hashString9 arr off of
+    G.H_osversion -> case zequal9 arr off 'o' 's' 'v' 'e' 'r' 's' 'i' 'o' 'n' of
+      0# -> do
+        val <- asciiTextField InvalidOsVersion
+        pure (OsVersion val)
+      _ -> P.fail UnknownField9
     G.H_srcserver -> case zequal9 arr off 's' 'r' 'c' 's' 'e' 'r' 'v' 'e' 'r' of
       0# -> do
         val <- Latin.decWord64 InvalidSourceServer
@@ -637,6 +660,15 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField9
     _ -> P.fail UnknownField9
   10 -> case G.hashString10 arr off of
+    G.H_session_id -> case zequal10 arr off 's' 'e' 's' 's' 'i' 'o' 'n' '_' 'i' 'd' of
+      0# -> do
+        -- For some crazy reason, FortiOS logs can have the session identifier
+        -- written as <sessionid=DECNUM> or <session_id=HEXNUM>. The underscore
+        -- determines the encoding of the number
+        -- TODO: Fix this.
+        _ <- asciiTextField InvalidSessionId
+        pure (SessionId 0)
+      _ -> P.fail UnknownField10
     G.H_srccountry -> case zequal10 arr off 's' 'r' 'c' 'c' 'o' 'u' 'n' 't' 'r' 'y' of
       0# -> do
         val <- asciiTextField InvalidSourceCountry

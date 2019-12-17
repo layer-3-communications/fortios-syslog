@@ -35,6 +35,7 @@ import qualified System.IO as IO
 allKeywords :: [String]
 allKeywords =
   [ "action"
+  , "alert"
   , "app"
   , "appcat"
   , "appid"
@@ -46,6 +47,7 @@ allKeywords =
   , "craction"
   , "crlevel"
   , "crscore"
+  , "desc"
   , "devtype"
   , "dhcp_msg"
   , "direction"
@@ -73,6 +75,7 @@ allKeywords =
   , "method"
   , "msg"
   , "osname"
+  , "osversion"
   , "policyid"
   , "policytype"
   , "poluuid"
@@ -89,6 +92,7 @@ allKeywords =
   , "sentpkt"
   , "service"
   , "sessionid"
+  , "session_id"
   , "srccountry"
   , "srchwvendor"
   , "srcintf"

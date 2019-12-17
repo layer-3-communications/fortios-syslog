@@ -84,6 +84,7 @@ data DecodeException
   | InvalidError
   | InvalidEventTime
   | InvalidEventType
+  | InvalidGroup
   | InvalidHostname
   | InvalidInterface
   | InvalidIp
@@ -101,6 +102,7 @@ data DecodeException
   | InvalidPolicyType
   | InvalidPolicyUuid
   | InvalidProfile
+  | InvalidProfileType
   | InvalidProtocol
   | InvalidReceivedBytes
   | InvalidReceivedDelta
@@ -131,6 +133,7 @@ data DecodeException
   | InvalidTranslationPort
   | InvalidType
   | InvalidUrl
+  | InvalidUrlFilterIndex
   | InvalidUser
   | InvalidUtmAction
   | InvalidVirtualDomain
@@ -177,6 +180,7 @@ data Field
   | Error {-# UNPACK #-} !Bytes
   | EventTime {-# UNPACK #-} !Word64
   | EventType {-# UNPACK #-} !Bytes
+  | Group {-# UNPACK #-} !Bytes
   | Hostname {-# UNPACK #-} !Bytes
   | Interface {-# UNPACK #-} !Bytes
   | Ip {-# UNPACK #-} !IP
@@ -193,6 +197,7 @@ data Field
   | PolicyType {-# UNPACK #-} !Bytes
   | PolicyUuid {-# UNPACK #-} !Word128
   | Profile {-# UNPACK #-} !Bytes
+  | ProfileType {-# UNPACK #-} !Bytes
   | Protocol {-# UNPACK #-} !Word8 -- ^ IANA Internet Protocol Number
   | ReceivedBytes {-# UNPACK #-} !Word64
   | ReceivedDelta {-# UNPACK #-} !Word64
@@ -220,6 +225,7 @@ data Field
   | TranslatedDestination {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
   | UtmAction {-# UNPACK #-} !Bytes
   | Url {-# UNPACK #-} !Bytes
+  | UrlFilterIndex {-# UNPACK #-} !Word64
   | User {-# UNPACK #-} !Bytes
   | VirtualDomain {-# UNPACK #-} !Bytes
   | VirtualWanLinkId {-# UNPACK #-} !Word64
@@ -330,6 +336,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       pure (User val)
     _ -> P.fail UnknownField4
   5 -> case G.hashString5 arr off of
+    G.H_group -> case zequal5 arr off 'g' 'r' 'o' 'u' 'p' of
+      0# -> do
+        val <- asciiTextField InvalidGroup
+        pure (Group val)
+      _ -> P.fail UnknownField5
     G.H_vwlid -> case zequal5 arr off 'v' 'w' 'l' 'i' 'd' of
       0# -> do
         val <- Latin.decWord64 InvalidVirtualWanLinkId
@@ -653,6 +664,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidReferralUrl
         pure (ReferralUrl val)
       _ -> P.fail UnknownField11
+    G.H_profiletype -> case zequal11 arr off 'p' 'r' 'o' 'f' 'i' 'l' 'e' 't' 'y' 'p' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidProfileType
+        pure (ProfileType val)
+      _ -> P.fail UnknownField11
     G.H_dstintfrole -> case zequal11 arr off 'd' 's' 't' 'i' 'n' 't' 'f' 'r' 'o' 'l' 'e' of
       0# -> do
         val <- asciiTextField InvalidDestinationInterfaceRole
@@ -670,6 +686,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField11
     _ -> P.fail UnknownField11
   12 -> case G.hashString12 arr off of
+    G.H_urlfilteridx -> case zequal12 arr off 'u' 'r' 'l' 'f' 'i' 'l' 't' 'e' 'r' 'i' 'd' 'x' of
+      0# -> do
+        val <- Latin.decWord64 InvalidUrlFilterIndex
+        pure (UrlFilterIndex val)
+      _ -> P.fail UnknownField12
     G.H_srcswversion -> case zequal12 arr off 's' 'r' 'c' 's' 'w' 'v' 'e' 'r' 's' 'i' 'o' 'n' of
       0# -> do
         val <- asciiTextField InvalidSourceSoftwareVersion

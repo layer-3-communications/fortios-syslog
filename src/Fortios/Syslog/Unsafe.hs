@@ -77,6 +77,7 @@ data DecodeException
   | InvalidDestinationInternetService
   | InvalidDestinationIp
   | InvalidDestinationPort
+  | InvalidDestinationUuid
   | InvalidDeviceId
   | InvalidDeviceName
   | InvalidDeviceType
@@ -127,6 +128,7 @@ data DecodeException
   | InvalidSourcePort
   | InvalidSourceServer
   | InvalidSourceSoftwareVersion
+  | InvalidSourceUuid
   | InvalidSubtype
   | InvalidSyslogPriority
   | InvalidTime
@@ -178,6 +180,7 @@ data Field
   | DestinationInternetService {-# UNPACK #-} !Bytes
   | DestinationIp {-# UNPACK #-} !IP
   | DestinationPort {-# UNPACK #-} !Word16
+  | DestinationUuid {-# UNPACK #-} !Word128
   | DeviceType {-# UNPACK #-} !Bytes
   | DhcpMessage {-# UNPACK #-} !Bytes
   | Direction {-# UNPACK #-} !Bytes
@@ -225,6 +228,7 @@ data Field
   | SourcePort {-# UNPACK #-} !Word16
   | SourceServer {-# UNPACK #-} !Word64
   | SourceSoftwareVersion {-# UNPACK #-} !Bytes
+  | SourceUuid {-# UNPACK #-} !Word128
   | TimeZone {-# UNPACK #-} !Int -- ^ Offset from UTC in minutes
   | TranslatedNone -- ^ When @trandisp@ is @noop@
   | TranslatedSource {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
@@ -449,6 +453,18 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField6
     _ -> P.fail UnknownField6
   7 -> case G.hashString7 arr off of
+    G.H_srcuuid -> case zequal7 arr off 's' 'r' 'c' 'u' 'u' 'i' 'd' of
+      0# -> do
+        -- TODO: this is totally wrong
+        _ <- asciiTextField InvalidSourceUuid
+        pure (PolicyUuid 0)
+      _ -> P.fail UnknownField7
+    G.H_dstuuid -> case zequal7 arr off 'd' 's' 't' 'u' 'u' 'i' 'd' of
+      0# -> do
+        -- TODO: this is totally wrong
+        _ <- asciiTextField InvalidDestinationUuid
+        pure (PolicyUuid 0)
+      _ -> P.fail UnknownField7
     G.H_poluuid -> case zequal7 arr off 'p' 'o' 'l' 'u' 'u' 'i' 'd' of
       0# -> do
         -- TODO: this is totally wrong

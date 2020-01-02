@@ -43,6 +43,7 @@ allKeywords =
   , "apprisk"
   , "cat"
   , "catdesc"
+  , "countapp"
   , "countweb"
   , "craction"
   , "crlevel"

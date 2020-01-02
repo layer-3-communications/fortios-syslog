@@ -69,6 +69,7 @@ data DecodeException
   | InvalidClientReputationLevel
   | InvalidClientReputationScore
   | InvalidCountWeb
+  | InvalidCountApplication
   | InvalidDate
   | InvalidDescription
   | InvalidDestinationCountry
@@ -165,13 +166,17 @@ data Field
   | App {-# UNPACK #-} !Bytes
   | ApplicationCategory {-# UNPACK #-} !Bytes
   | ApplicationId {-# UNPACK #-} !Word64
+    -- ^ ID of the application.
   | ApplicationList {-# UNPACK #-} !Bytes
   | ApplicationRisk {-# UNPACK #-} !Bytes
+    -- ^ Risk level of the application.
   | Category {-# UNPACK #-} !Word64
   | CategoryDescription {-# UNPACK #-} !Bytes
   | ClientReputationScore {-# UNPACK #-} !Word64
   | ClientReputationLevel {-# UNPACK #-} !Bytes
   | ClientReputationAction {-# UNPACK #-} !Bytes
+  | CountApplication {-# UNPACK #-} !Word64
+    -- ^ Number of App Ctrl logs associated with the session.
   | CountWeb {-# UNPACK #-} !Word64
   | Description {-# UNPACK #-} !Bytes
   | DestinationCountry {-# UNPACK #-} !Bytes
@@ -207,16 +212,22 @@ data Field
   | PolicyUuid {-# UNPACK #-} !Word128
   | Profile {-# UNPACK #-} !Bytes
   | ProfileType {-# UNPACK #-} !Bytes
-  | Protocol {-# UNPACK #-} !Word8 -- ^ IANA Internet Protocol Number
+  | Protocol {-# UNPACK #-} !Word8
+    -- ^ IANA Internet Protocol Number.
   | ReceivedBytes {-# UNPACK #-} !Word64
+    -- ^ Number of bytes received.
   | ReceivedDelta {-# UNPACK #-} !Word64
   | ReceivedPackets {-# UNPACK #-} !Word64
+    -- ^ Number of packets received.
   | ReferralUrl {-# UNPACK #-} !Bytes
   | RequestType {-# UNPACK #-} !Bytes
   | SentBytes {-# UNPACK #-} !Word64
+    -- ^ Number of bytes sent.
   | SentDelta {-# UNPACK #-} !Word64
   | SentPackets {-# UNPACK #-} !Word64
+    -- ^ Number of packets sent.
   | Service {-# UNPACK #-} !Bytes
+    -- ^ Name of the service.
   | SessionId {-# UNPACK #-} !Word64
   | SourceCountry {-# UNPACK #-} !Bytes
   | SourceHardwareVendor {-# UNPACK #-} !Bytes
@@ -597,6 +608,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       0# -> do
         val <- Latin.decWord64 InvalidCountWeb
         pure (CountWeb val)
+      _ -> P.fail UnknownField8
+    G.H_countapp -> case zequal8 arr off 'c' 'o' 'u' 'n' 't' 'a' 'p' 'p' of
+      0# -> do
+        val <- Latin.decWord64 InvalidCountApplication
+        pure (CountApplication val)
       _ -> P.fail UnknownField8
     G.H_trandisp -> case zequal8 arr off 't' 'r' 'a' 'n' 'd' 'i' 's' 'p' of
       0# -> Latin.any InvalidTranslationDisposition >>= \case

@@ -15,23 +15,25 @@ module Fortios.Syslog.Unsafe
   , decode
   ) where
 
-import Data.Char (ord)
-import Data.Word (Word8,Word16,Word64)
-import Data.WideWord (Word128)
-import Data.Bytes.Types (Bytes(Bytes))
-import Net.Types (IPv4,IP)
-import Data.Chunks (Chunks)
-import GHC.Exts (Int(I#),Char(C#),Char#,indexCharArray#,ord#,xorI#,orI#)
-import GHC.Exts (Int#,(+#))
-import Data.Primitive (ByteArray(..))
-import Data.Bytes.Parser (Parser)
+import Control.Monad (when)
 import Data.Builder.ST (Builder)
+import Data.Bytes.Parser (Parser)
+import Data.Bytes.Types (Bytes(Bytes))
+import Data.Char (ord)
+import Data.Chunks (Chunks)
+import Data.Primitive (ByteArray(..))
+import Data.WideWord (Word128)
+import Data.Word (Word8,Word16,Word64)
+import GHC.Exts (Int#,(+#))
+import GHC.Exts (Int(I#),Char(C#),Char#,indexCharArray#,ord#,xorI#,orI#)
+import Net.Types (IPv4,IP)
 
 import qualified Data.Builder.ST as Builder
 import qualified Data.Bytes.Parser as P
 import qualified Data.Bytes.Parser.Latin as Latin
 import qualified Net.IP as IP
 import qualified Net.IPv4 as IPv4
+import qualified Net.Mac as Mac
 import qualified Net.Types
 import qualified Fortios.Generated as G
 
@@ -99,6 +101,7 @@ data DecodeException
   | InvalidLogDescription
   | InvalidLogId
   | InvalidMac
+  | InvalidMasterSourceMac
   | InvalidMessage
   | InvalidMethod
   | InvalidOsName
@@ -203,6 +206,7 @@ data Field
   | Level {-# UNPACK #-} !Bytes
   | LogDescription {-# UNPACK #-} !Bytes
   | Mac {-# UNPACK #-} !Net.Types.Mac
+  | MasterSourceMac {-# UNPACK #-} !Net.Types.Mac
   | Message {-# UNPACK #-} !Bytes
   | Method {-# UNPACK #-} !Bytes
   | OsName {-# UNPACK #-} !Bytes
@@ -326,9 +330,10 @@ afterEquals !b = case fromIntegral @Int @Word len of
   3 -> case G.hashString3 arr off of
     G.H_mac -> case zequal3 arr off 'm' 'a' 'c' of
       0# -> do
-        _ <- asciiTextField InvalidMac
-        -- TODO: Fix this
-        pure (Mac (Net.Types.Mac 0))
+        quoted <- Latin.trySatisfy (=='"')
+        r <- Mac.parserUtf8Bytes InvalidMac
+        when quoted (Latin.char InvalidMac '"')
+        pure (Mac r)
       _ -> P.fail UnknownField3
     G.H_app -> case zequal3 arr off 'a' 'p' 'p' of
       0# -> do
@@ -428,9 +433,10 @@ afterEquals !b = case fromIntegral @Int @Word len of
   6 -> case G.hashString6 arr off of
     G.H_srcmac -> case zequal6 arr off 's' 'r' 'c' 'm' 'a' 'c' of
       0# -> do
-        _ <- asciiTextField InvalidSourceMac
-        -- TODO: Fix this
-        pure (SourceMac (Net.Types.Mac 0))
+        quoted <- Latin.trySatisfy (=='"')
+        r <- Mac.parserUtf8Bytes InvalidSourceMac
+        when quoted (Latin.char InvalidSourceMac '"')
+        pure (SourceMac r)
       _ -> P.fail UnknownField6
     G.H_appcat -> case zequal6 arr off 'a' 'p' 'p' 'c' 'a' 't' of
       0# -> do
@@ -762,9 +768,10 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField12
     G.H_mastersrcmac -> case zequal12 arr off 'm' 'a' 's' 't' 'e' 'r' 's' 'r' 'c' 'm' 'a' 'c' of
       0# -> do
-        -- TODO: Fix this
-        _ <- asciiTextField InvalidMac
-        pure (Mac (Net.Types.Mac 0))
+        quoted <- Latin.trySatisfy (=='"')
+        r <- Mac.parserUtf8Bytes InvalidMasterSourceMac
+        when quoted (Latin.char InvalidMasterSourceMac '"')
+        pure (MasterSourceMac r)
       _ -> P.fail UnknownField12
     _ -> P.fail UnknownField12
   _ -> P.fail UnknownField

@@ -38,8 +38,6 @@ import qualified Net.Types
 import qualified Fortios.Generated as G
 
 data Log = Log
-  -- { date :: !Date
-  -- , time :: !TimeOfDay
   { deviceName :: {-# UNPACK #-} !Bytes
   , deviceId :: {-# UNPACK #-} !Bytes
   , logId :: {-# UNPACK #-} !Bytes
@@ -65,6 +63,8 @@ data DecodeException
   | InvalidApplicationId
   | InvalidApplicationList
   | InvalidApplicationRisk
+  | InvalidAttack
+  | InvalidAttackId
   | InvalidCategory
   | InvalidCategoryDescription
   | InvalidClientReputationAction
@@ -92,6 +92,7 @@ data DecodeException
   | InvalidEventType
   | InvalidGroup
   | InvalidHostname
+  | InvalidIncidentSerialNumber
   | InvalidInterface
   | InvalidIp
   | InvalidLanIn
@@ -116,12 +117,14 @@ data DecodeException
   | InvalidReceivedDelta
   | InvalidReceivedPackets
   | InvalidReferralUrl
+  | InvalidReference
   | InvalidRequestType
   | InvalidSentBytes
   | InvalidSentDelta
   | InvalidSentPackets
   | InvalidService
   | InvalidSessionId
+  | InvalidSeverity
   | InvalidSourceCountry
   | InvalidSourceHardwareVendor
   | InvalidSourceInterface
@@ -142,6 +145,7 @@ data DecodeException
   | InvalidTranslationPort
   | InvalidType
   | InvalidUrl
+  | InvalidUrlFilterList
   | InvalidUrlFilterIndex
   | InvalidUser
   | InvalidUtmAction
@@ -161,6 +165,10 @@ data DecodeException
   | UnknownField10
   | UnknownField11
   | UnknownField12
+  | UnknownField13
+  | UnknownField14
+  | UnknownField15
+  | UnknownField16
   deriving (Show)
 
 data Field
@@ -172,6 +180,8 @@ data Field
     -- ^ ID of the application.
   | ApplicationList {-# UNPACK #-} !Bytes
   | ApplicationRisk {-# UNPACK #-} !Bytes
+  | Attack {-# UNPACK #-} !Bytes
+  | AttackId {-# UNPACK #-} !Word64
     -- ^ Risk level of the application.
   | Category {-# UNPACK #-} !Word64
   | CategoryDescription {-# UNPACK #-} !Bytes
@@ -198,6 +208,7 @@ data Field
   | EventType {-# UNPACK #-} !Bytes
   | Group {-# UNPACK #-} !Bytes
   | Hostname {-# UNPACK #-} !Bytes
+  | IncidentSerialNumber {-# UNPACK #-} !Word64
   | Interface {-# UNPACK #-} !Bytes
   | Ip {-# UNPACK #-} !IP
   | LanIn {-# UNPACK #-} !Word64
@@ -223,6 +234,7 @@ data Field
   | ReceivedDelta {-# UNPACK #-} !Word64
   | ReceivedPackets {-# UNPACK #-} !Word64
     -- ^ Number of packets received.
+  | Reference {-# UNPACK #-} !Bytes
   | ReferralUrl {-# UNPACK #-} !Bytes
   | RequestType {-# UNPACK #-} !Bytes
   | SentBytes {-# UNPACK #-} !Word64
@@ -233,6 +245,7 @@ data Field
   | Service {-# UNPACK #-} !Bytes
     -- ^ Name of the service.
   | SessionId {-# UNPACK #-} !Word64
+  | Severity {-# UNPACK #-} !Bytes
   | SourceCountry {-# UNPACK #-} !Bytes
   | SourceHardwareVendor {-# UNPACK #-} !Bytes
   | SourceInterface {-# UNPACK #-} !Bytes
@@ -251,6 +264,7 @@ data Field
   | UtmAction {-# UNPACK #-} !Bytes
   | Url {-# UNPACK #-} !Bytes
   | UrlFilterIndex {-# UNPACK #-} !Word64
+  | UrlFilterList {-# UNPACK #-} !Bytes
   | User {-# UNPACK #-} !Bytes
   | VirtualDomain {-# UNPACK #-} !Bytes
   | VirtualWanLinkId {-# UNPACK #-} !Word64
@@ -350,6 +364,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidMessage
         pure (Message val)
       _ -> P.fail UnknownField3
+    G.H_ref -> case zequal3 arr off 'r' 'e' 'f' of
+      0# -> do
+        val <- asciiTextField InvalidReference
+        pure (Reference val)
+      _ -> P.fail UnknownField3
     G.H_cat -> case zequal3 arr off 'c' 'a' 't' of
       0# -> do
         val <- Latin.decWord64 InvalidCategory
@@ -442,6 +461,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       0# -> do
         val <- asciiTextField InvalidApplicationCategory
         pure (ApplicationCategory val)
+      _ -> P.fail UnknownField6
+    G.H_attack -> case zequal6 arr off 'a' 't' 't' 'a' 'c' 'k' of
+      0# -> do
+        val <- asciiTextField InvalidAttack
+        pure (Attack val)
       _ -> P.fail UnknownField6
     G.H_action -> case zequal6 arr off 'a' 'c' 't' 'i' 'o' 'n' of
       0# -> do
@@ -580,6 +604,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidDhcpMessage
         pure (DhcpMessage val)
       _ -> P.fail UnknownField8
+    G.H_attackid -> case zequal8 arr off 'a' 't' 't' 'a' 'c' 'k' 'i' 'd' of
+      0# -> do
+        val <- Latin.decWord64 InvalidAttackId
+        pure (AttackId val)
+      _ -> P.fail UnknownField8
     G.H_hostname -> case zequal8 arr off 'h' 'o' 's' 't' 'n' 'a' 'm' 'e' of
       0# -> do
         val <- asciiTextField InvalidHostname
@@ -589,6 +618,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       0# -> do
         val <- asciiTextField InvalidClientReputationAction
         pure (ClientReputationAction val)
+      _ -> P.fail UnknownField8
+    G.H_severity -> case zequal8 arr off 's' 'e' 'v' 'e' 'r' 'i' 't' 'y' of
+      0# -> do
+        val <- asciiTextField InvalidSeverity
+        pure (Severity val)
       _ -> P.fail UnknownField8
     G.H_policyid -> case zequal8 arr off 'p' 'o' 'l' 'i' 'c' 'y' 'i' 'd' of
       0# -> do
@@ -774,6 +808,16 @@ afterEquals !b = case fromIntegral @Int @Word len of
         pure (MasterSourceMac r)
       _ -> P.fail UnknownField12
     _ -> P.fail UnknownField12
+  13 -> case zequal13 arr off 'u' 'r' 'l' 'f' 'i' 'l' 't' 'e' 'r' 'l' 'i' 's' 't' of
+    0# -> do
+      val <- asciiTextField InvalidUrlFilterList
+      pure (UrlFilterList val)
+    _ -> P.fail UnknownField13
+  16 -> case zequal16 arr off 'i' 'n' 'c' 'i' 'd' 'e' 'n' 't' 's' 'e' 'r' 'i' 'a' 'l' 'n' 'o' of
+    0# -> do
+      val <- Latin.decWord64 InvalidIncidentSerialNumber
+      pure (IncidentSerialNumber val)
+    _ -> P.fail UnknownField16
   _ -> P.fail UnknownField
   where
   !(Bytes arr off len) = b
@@ -976,6 +1020,68 @@ zequal12 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# 
   zeqChar# (indexCharArray# arr (off +# 10#)) k
   `orI#`
   zeqChar# (indexCharArray# arr (off +# 11#)) l
+
+zequal13 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
+zequal13 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g) (C# h) (C# i) (C# j) (C# k) (C# l) (C# m) =
+  zeqChar# (indexCharArray# arr off) a
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 1#)) b
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 2#)) c
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 3#)) d
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 4#)) e
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 5#)) f
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 6#)) g
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 7#)) h
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 8#)) i
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 9#)) j
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 10#)) k
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 11#)) l
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 12#)) m
+
+zequal16 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
+zequal16 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g) (C# h) (C# i) (C# j) (C# k) (C# l) (C# m) (C# n) (C# o) (C# p) =
+  zeqChar# (indexCharArray# arr off) a
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 1#)) b
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 2#)) c
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 3#)) d
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 4#)) e
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 5#)) f
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 6#)) g
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 7#)) h
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 8#)) i
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 9#)) j
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 10#)) k
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 11#)) l
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 12#)) m
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 13#)) n
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 14#)) o
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 15#)) p
 
 c2w :: Char -> Word8
 c2w = fromIntegral . ord

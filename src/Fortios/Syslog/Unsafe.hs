@@ -15,6 +15,8 @@ module Fortios.Syslog.Unsafe
   , decode
   ) where
 
+import Chronos (Date(Date),TimeOfDay(TimeOfDay))
+import Chronos (Month(Month),DayOfMonth(DayOfMonth),Year(Year))
 import Control.Monad (when)
 import Data.Builder.ST (Builder)
 import Data.Bytes.Parser (Parser)
@@ -38,7 +40,9 @@ import qualified Net.Types
 import qualified Fortios.Generated as G
 
 data Log = Log
-  { deviceName :: {-# UNPACK #-} !Bytes
+  { date :: {-# UNPACK #-} !Date
+  , time :: {-# UNPACK #-} !TimeOfDay
+  , deviceName :: {-# UNPACK #-} !Bytes
   , deviceId :: {-# UNPACK #-} !Bytes
   , logId :: {-# UNPACK #-} !Bytes
   , type_ :: {-# UNPACK #-} !Bytes
@@ -287,10 +291,19 @@ fullParser = do
   -- Skip any leading space or any space after the syslog priority.
   Latin.skipChar ' '
   Latin.char5 ExpectedDate 'd' 'a' 't' 'e' '='
-  Latin.skipTrailedBy InvalidDate ' '
-  Latin.char5 ExpectedTime 't' 'i' 'm' 'e' '='
-  Latin.skipTrailedBy InvalidTime ' '
-  Latin.char8 ExpectedDeviceName 'd' 'e' 'v' 'n' 'a' 'm' 'e' '='
+  year <- Latin.decWord InvalidDate
+  Latin.char InvalidDate '-'
+  month' <- Latin.decWord InvalidDate
+  let !month = month' - 1
+  Latin.char InvalidDate '-'
+  day <- Latin.decWord InvalidDate
+  Latin.char6 ExpectedTime ' ' 't' 'i' 'm' 'e' '='
+  hour <- Latin.decWord InvalidTime
+  Latin.char InvalidTime ':'
+  minute <- Latin.decWord InvalidTime
+  Latin.char InvalidTime ':'
+  sec <- Latin.decWord InvalidTime
+  Latin.char9 ExpectedDeviceName ' ' 'd' 'e' 'v' 'n' 'a' 'm' 'e' '='
   deviceName <- asciiTextField InvalidDeviceName
   Latin.char7 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i' 'd' '='
   deviceId <- asciiTextField InvalidDeviceId
@@ -301,12 +314,20 @@ fullParser = do
   Latin.char9 ExpectedSubtype ' ' 's' 'u' 'b' 't' 'y' 'p' 'e' '='
   subtype <- asciiTextField InvalidSubtype
   fields <- fieldsParser =<< P.effect Builder.new
-  -- let date = error "huantoehutnahoen"
-  -- let time = error "huantoehutnahoen"
-  pure Log
-    { deviceName, deviceId, logId, type_, subtype
-    , fields
-    }
+  if month < 12
+    then pure Log
+      { deviceName, deviceId, logId, type_, subtype
+      , fields
+      , date = Date
+          (Year (fromIntegral year))
+          (Month (fromIntegral month))
+          (DayOfMonth (fromIntegral day))
+      , time = TimeOfDay
+          (fromIntegral hour)
+          (fromIntegral minute)
+          (fromIntegral (sec * 1000000000))
+      }
+    else P.fail InvalidDate
 
 fieldsParser ::
      Builder s Field

@@ -1,0 +1,6 @@
+packages: .
+
+source-repository-package
+    type: git
+    location: https://github.com/goolord/uuid-bytes
+    tag: a7c38ab332b6c2b17bdde570a507822b95c3b9dc

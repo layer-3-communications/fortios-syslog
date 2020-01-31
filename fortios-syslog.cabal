@@ -27,6 +27,7 @@ library
     , chronos >=1.0.5
     , ip >=1.7.1 && <1.8
     , primitive >=0.7 && <0.8
+    , uuid-bytes >=0.1 && <0.2
     , wide-word >=0.1.0.8
   hs-source-dirs: src
   ghc-options: -Wall -O2

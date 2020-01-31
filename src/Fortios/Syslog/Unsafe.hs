@@ -38,6 +38,7 @@ import qualified Net.IPv4 as IPv4
 import qualified Net.Mac as Mac
 import qualified Net.Types
 import qualified Fortios.Generated as G
+import qualified UUID
 
 data Log = Log
   { date :: {-# UNPACK #-} !Date
@@ -517,21 +518,18 @@ afterEquals !b = case fromIntegral @Int @Word len of
   7 -> case G.hashString7 arr off of
     G.H_srcuuid -> case zequal7 arr off 's' 'r' 'c' 'u' 'u' 'i' 'd' of
       0# -> do
-        -- TODO: this is totally wrong
-        _ <- asciiTextField InvalidSourceUuid
-        pure (PolicyUuid 0)
+        w <- uuidField InvalidSourceUuid
+        pure (SourceUuid w)
       _ -> P.fail UnknownField7
     G.H_dstuuid -> case zequal7 arr off 'd' 's' 't' 'u' 'u' 'i' 'd' of
       0# -> do
-        -- TODO: this is totally wrong
-        _ <- asciiTextField InvalidDestinationUuid
-        pure (PolicyUuid 0)
+        w <- uuidField InvalidDestinationUuid
+        pure (DestinationUuid w)
       _ -> P.fail UnknownField7
     G.H_poluuid -> case zequal7 arr off 'p' 'o' 'l' 'u' 'u' 'i' 'd' of
       0# -> do
-        -- TODO: this is totally wrong
-        _ <- asciiTextField InvalidPolicyUuid
-        pure (PolicyUuid 0)
+        w <- uuidField InvalidPolicyUuid
+        pure (PolicyUuid w)
       _ -> P.fail UnknownField7
     G.H_devtype -> case zequal7 arr off 'd' 'e' 'v' 't' 'y' 'p' 'e' of
       0# -> do
@@ -865,6 +863,15 @@ asciiTextField :: e -> Parser e s Bytes
 asciiTextField e = Latin.trySatisfy (== '"') >>= \case
   True -> P.takeTrailedBy e (c2w '"')
   False -> P.takeWhile (\w -> w /= c2w ' ')
+
+-- Some versions of FortiOS put quotes around uuids. Others do not.
+-- We handle both cases.
+uuidField :: e -> Parser e s Word128
+uuidField e = do
+  isQuoted <- Latin.trySatisfy (== '"')
+  r <- UUID.parserHyphenated e
+  when isQuoted (Latin.char e '"')
+  pure r
 
 zequal2 :: ByteArray -> Int -> Char -> Char -> Int#
 zequal2 (ByteArray arr) (I# off) (C# a) (C# b) =

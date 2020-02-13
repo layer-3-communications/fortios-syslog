@@ -112,6 +112,7 @@ testTrafficForwardC = case FGT.decode S.traffic_forward_C of
         FGT.OsName n -> when (n /= str "Windows") (fail "wrong osname")
         FGT.EventTime n -> when (n /= 1574989980897483985) (fail "wrong eventtime")
         FGT.TimeZone n -> when (n /= (-600)) (fail "wrong tz")
+        FGT.PolicyUuid n -> when (n /= 0x4b8108d8031561f0042ac1fdfa3e8910) (fail "wrong poluuid")
         _ -> pure ()
       )
 

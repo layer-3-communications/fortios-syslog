@@ -45,6 +45,7 @@ allKeywords =
   , "attackid"
   , "cat"
   , "catdesc"
+  , "centralnatid"
   , "countapp"
   , "countweb"
   , "craction"

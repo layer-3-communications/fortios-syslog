@@ -72,6 +72,7 @@ data DecodeException
   | InvalidAttackId
   | InvalidCategory
   | InvalidCategoryDescription
+  | InvalidCentralNatId
   | InvalidClientReputationAction
   | InvalidClientReputationLevel
   | InvalidClientReputationScore
@@ -190,6 +191,7 @@ data Field
     -- ^ Risk level of the application.
   | Category {-# UNPACK #-} !Word64
   | CategoryDescription {-# UNPACK #-} !Bytes
+  | CentralNatId {-# UNPACK #-} !Word64
   | ClientReputationScore {-# UNPACK #-} !Word64
   | ClientReputationLevel {-# UNPACK #-} !Bytes
   | ClientReputationAction {-# UNPACK #-} !Bytes
@@ -809,6 +811,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField11
     _ -> P.fail UnknownField11
   12 -> case G.hashString12 arr off of
+    G.H_centralnatid -> case zequal12 arr off 'c' 'e' 'n' 't' 'r' 'a' 'l' 'n' 'a' 't' 'i' 'd' of
+      0# -> do
+        val <- Latin.decWord64 InvalidCentralNatId
+        pure (CentralNatId val)
+      _ -> P.fail UnknownField12
     G.H_urlfilteridx -> case zequal12 arr off 'u' 'r' 'l' 'f' 'i' 'l' 't' 'e' 'r' 'i' 'd' 'x' of
       0# -> do
         val <- Latin.decWord64 InvalidUrlFilterIndex

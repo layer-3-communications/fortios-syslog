@@ -132,6 +132,7 @@ data DecodeException
   | InvalidSessionId
   | InvalidSeverity
   | InvalidSourceCountry
+  | InvalidSourceFamily
   | InvalidSourceHardwareVendor
   | InvalidSourceInterface
   | InvalidSourceInterfaceRole
@@ -142,6 +143,8 @@ data DecodeException
   | InvalidSourceServer
   | InvalidSourceSoftwareVersion
   | InvalidSourceUuid
+  | InvalidSslCertificateCommonName
+  | InvalidSslCertificateIssuer
   | InvalidSubtype
   | InvalidSyslogPriority
   | InvalidTime
@@ -254,6 +257,7 @@ data Field
   | SessionId {-# UNPACK #-} !Word64
   | Severity {-# UNPACK #-} !Bytes
   | SourceCountry {-# UNPACK #-} !Bytes
+  | SourceFamily {-# UNPACK #-} !Bytes
   | SourceHardwareVendor {-# UNPACK #-} !Bytes
   | SourceInterface {-# UNPACK #-} !Bytes
   | SourceInterfaceRole {-# UNPACK #-} !Bytes
@@ -264,6 +268,8 @@ data Field
   | SourceServer {-# UNPACK #-} !Word64
   | SourceSoftwareVersion {-# UNPACK #-} !Bytes
   | SourceUuid {-# UNPACK #-} !Word128
+  | SslCertificateCommonName {-# UNPACK #-} !Bytes
+  | SslCertificateIssuer {-# UNPACK #-} !Bytes
   | TimeZone {-# UNPACK #-} !Int -- ^ Offset from UTC in minutes
   | TranslatedNone -- ^ When @trandisp@ is @noop@
   | TranslatedSource {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
@@ -741,6 +747,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidDirection
         pure (Direction val)
       _ -> P.fail UnknownField9
+    G.H_srcfamily -> case zequal9 arr off 's' 'r' 'c' 'f' 'a' 'm' 'i' 'l' 'y' of
+      0# -> do
+        val <- asciiTextField InvalidSourceFamily
+        pure (SourceFamily val)
+      _ -> P.fail UnknownField9
     G.H_sentdelta -> case zequal9 arr off 's' 'e' 'n' 't' 'd' 'e' 'l' 't' 'a' of
       0# -> do
         val <- Latin.decWord64 InvalidSentDelta
@@ -782,8 +793,18 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidDestinationInternetService
         pure (DestinationInternetService val)
       _ -> P.fail UnknownField10
+    G.H_scertcname -> case zequal10 arr off 's' 'c' 'e' 'r' 't' 'c' 'n' 'a' 'm' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidSslCertificateCommonName
+        pure (SslCertificateCommonName val)
+      _ -> P.fail UnknownField10
     _ -> P.fail UnknownField10
   11 -> case G.hashString11 arr off of
+    G.H_scertissuer -> case zequal11 arr off 's' 'c' 'e' 'r' 't' 'i' 's' 's' 'u' 'e' 'r' of
+      0# -> do
+        val <- asciiTextField InvalidSslCertificateIssuer
+        pure (SslCertificateIssuer val)
+      _ -> P.fail UnknownField11
     G.H_referralurl -> case zequal11 arr off 'r' 'e' 'f' 'e' 'r' 'r' 'a' 'l' 'u' 'r' 'l' of
       0# -> do
         val <- asciiTextField InvalidReferralUrl

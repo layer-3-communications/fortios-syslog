@@ -102,6 +102,7 @@ allKeywords =
   , "sessionid"
   , "severity"
   , "srccountry"
+  , "srcfamily"
   , "srchwvendor"
   , "srcintf"
   , "srcintfrole"
@@ -123,6 +124,8 @@ allKeywords =
   , "vwlid"
   , "wanin"
   , "wanout"
+  , "scertcname"
+  , "scertissuer"
   ]
 
 data Algorithm = AlgoTwo !Int !Int | AlgoFour !Int !Int !Int !Int

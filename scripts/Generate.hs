@@ -115,6 +115,8 @@ allKeywords =
   , "srcuuid"
   , "trandisp"
   , "tz"
+  , "unauthuser"
+  , "unauthusersource"
   , "url"
   , "urlfilteridx"
   , "urlfilterlist"

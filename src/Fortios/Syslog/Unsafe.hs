@@ -153,6 +153,8 @@ data DecodeException
   | InvalidTranslationIp
   | InvalidTranslationPort
   | InvalidType
+  | InvalidUnauthenticatedUser
+  | InvalidUnauthenticatedUserSource
   | InvalidUrl
   | InvalidUrlFilterList
   | InvalidUrlFilterIndex
@@ -274,6 +276,8 @@ data Field
   | TranslatedNone -- ^ When @trandisp@ is @noop@
   | TranslatedSource {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
   | TranslatedDestination {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
+  | UnauthenticatedUser {-# UNPACK #-} !Bytes
+  | UnauthenticatedUserSource {-# UNPACK #-} !Bytes
   | UtmAction {-# UNPACK #-} !Bytes
   | Url {-# UNPACK #-} !Bytes
   | UrlFilterIndex {-# UNPACK #-} !Word64
@@ -773,6 +777,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         _ <- asciiTextField InvalidSessionId
         pure (SessionId 0)
       _ -> P.fail UnknownField10
+    G.H_unauthuser -> case zequal10 arr off 'u' 'n' 'a' 'u' 't' 'h' 'u' 's' 'e' 'r' of
+      0# -> do
+        val <- asciiTextField InvalidUnauthenticatedUser
+        pure (UnauthenticatedUser val)
+      _ -> P.fail UnknownField10
     G.H_srccountry -> case zequal10 arr off 's' 'r' 'c' 'c' 'o' 'u' 'n' 't' 'r' 'y' of
       0# -> do
         val <- asciiTextField InvalidSourceCountry
@@ -860,10 +869,17 @@ afterEquals !b = case fromIntegral @Int @Word len of
       val <- asciiTextField InvalidUrlFilterList
       pure (UrlFilterList val)
     _ -> P.fail UnknownField13
-  16 -> case zequal16 arr off 'i' 'n' 'c' 'i' 'd' 'e' 'n' 't' 's' 'e' 'r' 'i' 'a' 'l' 'n' 'o' of
-    0# -> do
-      val <- Latin.decWord64 InvalidIncidentSerialNumber
-      pure (IncidentSerialNumber val)
+  16 -> case G.hashString16 arr off of
+    G.H_incidentserialno -> case zequal16 arr off 'i' 'n' 'c' 'i' 'd' 'e' 'n' 't' 's' 'e' 'r' 'i' 'a' 'l' 'n' 'o' of
+      0# -> do
+        val <- Latin.decWord64 InvalidIncidentSerialNumber
+        pure (IncidentSerialNumber val)
+      _ -> P.fail UnknownField16
+    G.H_unauthusersource -> case zequal16 arr off 'u' 'n' 'a' 'u' 't' 'h' 'u' 's' 'e' 'r' 's' 'o' 'u' 'r' 'c' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidUnauthenticatedUserSource
+        pure (UnauthenticatedUserSource val)
+      _ -> P.fail UnknownField16
     _ -> P.fail UnknownField16
   _ -> P.fail UnknownField
   where

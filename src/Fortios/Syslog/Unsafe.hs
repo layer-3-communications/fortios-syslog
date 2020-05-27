@@ -64,6 +64,7 @@ data DecodeException
   | InvalidAction
   | InvalidAlert
   | InvalidApp
+  | InvalidApplicationAction
   | InvalidApplicationCategory
   | InvalidApplicationId
   | InvalidApplicationList
@@ -186,6 +187,7 @@ data Field
   = Action {-# UNPACK #-} !Bytes
   | Alert {-# UNPACK #-} !Word64
   | App {-# UNPACK #-} !Bytes
+  | ApplicationAction {-# UNPACK #-} !Bytes
   | ApplicationCategory {-# UNPACK #-} !Bytes
   | ApplicationId {-# UNPACK #-} !Word64
     -- ^ ID of the application.
@@ -490,6 +492,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         r <- Mac.parserUtf8Bytes InvalidSourceMac
         when quoted (Latin.char InvalidSourceMac '"')
         pure (SourceMac r)
+      _ -> P.fail UnknownField6
+    G.H_appact -> case zequal6 arr off 'a' 'p' 'p' 'a' 'c' 't' of
+      0# -> do
+        val <- asciiTextField InvalidApplicationAction
+        pure (ApplicationAction val)
       _ -> P.fail UnknownField6
     G.H_appcat -> case zequal6 arr off 'a' 'p' 'p' 'c' 'a' 't' of
       0# -> do

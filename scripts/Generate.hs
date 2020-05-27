@@ -37,6 +37,7 @@ allKeywords =
   [ "action"
   , "alert"
   , "app"
+  , "appact"
   , "appcat"
   , "appid"
   , "applist"

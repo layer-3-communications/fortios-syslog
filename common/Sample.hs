@@ -7,6 +7,7 @@ module Sample
   , traffic_forward_B
   , traffic_forward_C
   , traffic_forward_D
+  , traffic_forward_E
   , utm_webfilter_A
   , utm_webfilter_B
   , utm_webfilter_C
@@ -124,6 +125,21 @@ traffic_forward_D = pack $ concat
   , "appcat=\"unscanned\" wanin=2162 wanout=1758 lanin=1758 lanout=2162 "
   , "devtype=\"Router/NAT Device\" mastersrcmac=de:ad:be:ef:12:34 "
   , "srcmac=ab:cd:ef:01:23:45"
+  ]
+
+traffic_forward_E :: Bytes
+traffic_forward_E = pack $ concat
+  [ "date=2019-12-28 time=20:15:43 devname=foo-bar-1 devid=FGT-NY "
+  , "logid=0000000013 type=traffic subtype=forward level=notice vd=root "
+  , "srcip=192.0.2.16 srcport=44048 srcintf=\"port1\" dstip=192.0.2.15 "
+  , "dstport=8800 dstintf=\"Vlan43\" "
+  , "poluuid=665f3340-1fb0-5fe7-0a7e-b32af87b809a sessionid=3838291256 "
+  , "proto=6 action=timeout policyid=37 policytype=policy "
+  , "dstcountry=\"United States\" srccountry=\"United States\" "
+  , "trandisp=snat+dnat tranip=192.0.2.201 tranport=80 transip=192.0.2.202 "
+  , "transport=44048 service=\"TCP-8800\" duration=10 sentbyte=40 "
+  , "rcvdbyte=68 sentpkt=1 rcvdpkt=1 appcat=\"unscanned\" crscore=5 "
+  , "craction=252034 crlevel=low"
   ]
 
 utm_webfilter_A :: Bytes

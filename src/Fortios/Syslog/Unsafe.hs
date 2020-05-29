@@ -77,6 +77,7 @@ data DecodeException
   | InvalidClientReputationAction
   | InvalidClientReputationLevel
   | InvalidClientReputationScore
+  | InvalidCountIps
   | InvalidCountWeb
   | InvalidCountApplication
   | InvalidDate
@@ -199,6 +200,8 @@ data Field
   | Category {-# UNPACK #-} !Word64
   | CategoryDescription {-# UNPACK #-} !Bytes
   | CentralNatId {-# UNPACK #-} !Word64
+  | CountIps {-# UNPACK #-} !Word64
+    -- ^ Number of the IPS logs associated with the session
   | ClientReputationScore {-# UNPACK #-} !Word64
   | ClientReputationLevel {-# UNPACK #-} !Bytes
   | ClientReputationAction {-# UNPACK #-} !Bytes
@@ -647,6 +650,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- Latin.decWord64 InvalidAttackId
         pure (AttackId val)
       _ -> P.fail UnknownField8
+    G.H_attackid -> case zequal8 arr off 'c' 'o' 'u' 'n' 't' 'i' 'p' 's' of
+      0# -> do
+        val <- Latin.decWord64 InvalidCountIps
+        pure (CountIps val)
+      _ -> P.fail UnknownField8
     G.H_hostname -> case zequal8 arr off 'h' 'o' 's' 't' 'n' 'a' 'm' 'e' of
       0# -> do
         val <- asciiTextField InvalidHostname
@@ -702,8 +710,14 @@ afterEquals !b = case fromIntegral @Int @Word len of
             Latin.char5 InvalidTranslationDisposition 'n' 'a' 't' '"' ' '
             dnatFinish
           's' -> do
-            Latin.char5 InvalidTranslationDisposition 'n' 'a' 't' '"' ' '
-            snatFinish
+            Latin.char3 InvalidTranslationDisposition 'n' 'a' 't'
+            Latin.trySatisfy (== '+') >>= \case
+              False -> do
+                Latin.char2 InvalidTranslationDisposition '"' ' '
+                snatFinish
+              True -> do
+                Latin.char6 InvalidTranslationDisposition 'd' 'n' 'a' 't' '"' ' '
+                snatAndDnatFinish
           _ -> P.fail InvalidTranslationDisposition
         'n' -> do
           Latin.char3 InvalidTranslationDisposition 'o' 'o' 'p'
@@ -712,8 +726,14 @@ afterEquals !b = case fromIntegral @Int @Word len of
           Latin.char4 InvalidTranslationDisposition 'n' 'a' 't' ' '
           dnatFinish
         's' -> do
-          Latin.char4 InvalidTranslationDisposition 'n' 'a' 't' ' '
-          snatFinish
+          Latin.char3 InvalidTranslationDisposition 'n' 'a' 't'
+          Latin.trySatisfy (== '+') >>= \case
+            False -> do
+              Latin.char InvalidTranslationDisposition ' '
+              snatFinish
+            True -> do
+              Latin.char5 InvalidTranslationDisposition 'd' 'n' 'a' 't' ' '
+              snatAndDnatFinish
         _ -> P.fail InvalidTranslationDisposition
       _ -> P.fail UnknownField8
     _ -> P.fail UnknownField8
@@ -907,6 +927,18 @@ snatFinish = do
   Latin.char11 InvalidTranslationDisposition ' ' 't' 'r' 'a' 'n' 's' 'p' 'o' 'r' 't' '='
   !port <- Latin.decWord16 InvalidTranslationPort
   pure (TranslatedSource ip port)
+
+-- TODO: This just throws away the source nat. This can be fixed, but it
+-- requires a more general restructuring of this library.
+snatAndDnatFinish :: Parser DecodeException s Field
+snatAndDnatFinish = do
+  Latin.char7 InvalidTranslationDisposition 't' 'r' 'a' 'n' 'i' 'p' '='
+  !ip <- IPv4.parserUtf8Bytes InvalidTranslationIp
+  Latin.char10 InvalidTranslationDisposition ' ' 't' 'r' 'a' 'n' 'p' 'o' 'r' 't' '='
+  !port <- Latin.decWord16 InvalidTranslationPort
+  Latin.char InvalidTranslationDisposition ' '
+  _ <- snatFinish
+  pure (TranslatedDestination ip port)
 
 -- Field is optionally surrounded by quotes. This does not
 -- consume a trailing space.

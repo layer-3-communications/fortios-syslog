@@ -25,6 +25,8 @@ main = do
   testTrafficForwardC
   putStrLn "traffic_forward_D"
   testTrafficForwardD
+  putStrLn "traffic_forward_E"
+  testTrafficForwardE
   putStrLn "utm_webfilter_A"
   testUtmWebfilterA
   putStrLn "utm_webfilter_B"
@@ -117,15 +119,28 @@ testTrafficForwardC = case FGT.decode S.traffic_forward_C of
       )
 
 testTrafficForwardD :: IO ()
-testTrafficForwardD = case FGT.decode S.traffic_forward_C of
+testTrafficForwardD = case FGT.decode S.traffic_forward_D of
   Left e -> fail (show e)
   Right x -> do
     when (FGT.subtype x /= str "forward")
       (fail "wrong subtype")
     for_ (FGT.fields x)
       (\case
-        FGT.DeviceType n -> when (n /= str "Router/Nat Device")
-          (fail "wrong devtype")
+        FGT.DeviceType n -> when (n /= str "Router/NAT Device")
+          (fail ("wrong devtype: got " ++ Bytes.toLatinString n))
+        _ -> pure ()
+      )
+
+testTrafficForwardE :: IO ()
+testTrafficForwardE = case FGT.decode S.traffic_forward_E of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "forward")
+      (fail "wrong subtype")
+    for_ (FGT.fields x)
+      (\case
+        FGT.DestinationCountry n -> when (n /= str "United States")
+          (fail "wrong dstcountry")
         _ -> pure ()
       )
 

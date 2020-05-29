@@ -48,6 +48,7 @@ allKeywords =
   , "catdesc"
   , "centralnatid"
   , "countapp"
+  , "countips"
   , "countweb"
   , "craction"
   , "crlevel"

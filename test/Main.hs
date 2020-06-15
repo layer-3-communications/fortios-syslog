@@ -33,9 +33,13 @@ main = do
   testUtmWebfilterB
   putStrLn "utm_webfilter_C"
   testUtmWebfilterC
-  putStrLn "event_system_A"
-  testEventSystemA
+  putStrLn "event_system_A:priority"
+  testEventSystemA WithPriority
+  putStrLn "event_system_A:no-priority"
+  testEventSystemA WithoutPriority
   pure ()
+
+data Priority = WithPriority | WithoutPriority
 
 testTrafficLocalA :: IO ()
 testTrafficLocalA = case FGT.decode S.traffic_local_A of
@@ -181,8 +185,8 @@ testUtmWebfilterC = case FGT.decode S.utm_webfilter_C of
         _ -> pure ()
       )
 
-testEventSystemA :: IO ()
-testEventSystemA = case FGT.decode S.event_system_A of
+testEventSystemA :: Priority -> IO ()
+testEventSystemA pri = case FGT.decode msg of
   Left e -> fail (show e)
   Right x -> do
     when (FGT.subtype x /= str "system") (fail "wrong subtype")
@@ -197,6 +201,10 @@ testEventSystemA = case FGT.decode S.event_system_A of
         FGT.Lease n -> when (n /= 3600) (fail "lease")
         _ -> pure ()
       )
+  where
+  msg = case pri of
+    WithPriority -> Bytes.fromLatinString "<158>" <> S.event_system_A
+    WithoutPriority -> S.event_system_A
 
 str :: String -> Bytes
 str = Bytes.fromAsciiString

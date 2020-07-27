@@ -71,6 +71,7 @@ data DecodeException
   | InvalidApplicationRisk
   | InvalidAttack
   | InvalidAttackId
+  | InvalidAuthServer
   | InvalidCategory
   | InvalidCategoryDescription
   | InvalidCentralNatId
@@ -83,12 +84,14 @@ data DecodeException
   | InvalidDate
   | InvalidDescription
   | InvalidDestinationCountry
+  | InvalidDestinationDeviceType
   | InvalidDestinationInterface
   | InvalidDestinationInterfaceRole
   | InvalidDestinationInternetService
   | InvalidDestinationIp
   | InvalidDestinationPort
   | InvalidDestinationUuid
+  | InvalidDeviceCategory
   | InvalidDeviceId
   | InvalidDeviceName
   | InvalidDeviceType
@@ -164,6 +167,7 @@ data DecodeException
   | InvalidUtmAction
   | InvalidVirtualDomain
   | InvalidVirtualWanLinkId
+  | InvalidVirtualWanLinkQuality
   | InvalidWanIn
   | InvalidWanOut
   | UnknownField
@@ -197,6 +201,7 @@ data Field
   | Attack {-# UNPACK #-} !Bytes
   | AttackId {-# UNPACK #-} !Word64
     -- ^ Risk level of the application.
+  | AuthServer {-# UNPACK #-} !Bytes
   | Category {-# UNPACK #-} !Word64
   | CategoryDescription {-# UNPACK #-} !Bytes
   | CentralNatId {-# UNPACK #-} !Word64
@@ -210,12 +215,14 @@ data Field
   | CountWeb {-# UNPACK #-} !Word64
   | Description {-# UNPACK #-} !Bytes
   | DestinationCountry {-# UNPACK #-} !Bytes
+  | DestinationDeviceType {-# UNPACK #-} !Bytes
   | DestinationInterface {-# UNPACK #-} !Bytes
   | DestinationInterfaceRole {-# UNPACK #-} !Bytes
   | DestinationInternetService {-# UNPACK #-} !Bytes
   | DestinationIp {-# UNPACK #-} !IP
   | DestinationPort {-# UNPACK #-} !Word16
   | DestinationUuid {-# UNPACK #-} !Word128
+  | DeviceCategory {-# UNPACK #-} !Bytes
   | DeviceType {-# UNPACK #-} !Bytes
   | DhcpMessage {-# UNPACK #-} !Bytes
   | Direction {-# UNPACK #-} !Bytes
@@ -290,6 +297,7 @@ data Field
   | User {-# UNPACK #-} !Bytes
   | VirtualDomain {-# UNPACK #-} !Bytes
   | VirtualWanLinkId {-# UNPACK #-} !Word64
+  | VirtualWanLinkQuality {-# UNPACK #-} !Bytes
   | WanIn {-# UNPACK #-} !Word64
   | WanOut {-# UNPACK #-} !Word64
 
@@ -650,7 +658,7 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- Latin.decWord64 InvalidAttackId
         pure (AttackId val)
       _ -> P.fail UnknownField8
-    G.H_attackid -> case zequal8 arr off 'c' 'o' 'u' 'n' 't' 'i' 'p' 's' of
+    G.H_countips -> case zequal8 arr off 'c' 'o' 'u' 'n' 't' 'i' 'p' 's' of
       0# -> do
         val <- Latin.decWord64 InvalidCountIps
         pure (CountIps val)
@@ -804,6 +812,21 @@ afterEquals !b = case fromIntegral @Int @Word len of
         _ <- asciiTextField InvalidSessionId
         pure (SessionId 0)
       _ -> P.fail UnknownField10
+    G.H_vwlquality -> case zequal10 arr off 'v' 'w' 'l' 'q' 'u' 'a' 'l' 'i' 't' 'y' of
+      0# -> do
+        val <- asciiTextField InvalidVirtualWanLinkQuality
+        pure (VirtualWanLinkQuality val)
+      _ -> P.fail UnknownField10
+    G.H_authserver -> case zequal10 arr off 'a' 'u' 't' 'h' 's' 'e' 'r' 'v' 'e' 'r' of
+      0# -> do
+        val <- asciiTextField InvalidAuthServer
+        pure (AuthServer val)
+      _ -> P.fail UnknownField10
+    G.H_dstdevtype -> case zequal10 arr off 'd' 's' 't' 'd' 'e' 'v' 't' 'y' 'p' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidDestinationDeviceType
+        pure (DestinationDeviceType val)
+      _ -> P.fail UnknownField10
     G.H_unauthuser -> case zequal10 arr off 'u' 'n' 'a' 'u' 't' 'h' 'u' 's' 'e' 'r' of
       0# -> do
         val <- asciiTextField InvalidUnauthenticatedUser
@@ -836,6 +859,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField10
     _ -> P.fail UnknownField10
   11 -> case G.hashString11 arr off of
+    G.H_devcategory -> case zequal11 arr off 'd' 'e' 'v' 'c' 'a' 't' 'e' 'g' 'o' 'r' 'y' of
+      0# -> do
+        val <- asciiTextField InvalidDeviceCategory
+        pure (DeviceCategory val)
+      _ -> P.fail UnknownField11
     G.H_scertissuer -> case zequal11 arr off 's' 'c' 'e' 'r' 't' 'i' 's' 's' 'u' 'e' 'r' of
       0# -> do
         val <- asciiTextField InvalidSslCertificateIssuer

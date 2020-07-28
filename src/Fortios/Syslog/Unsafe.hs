@@ -84,12 +84,17 @@ data DecodeException
   | InvalidDate
   | InvalidDescription
   | InvalidDestinationCountry
+  | InvalidDestinationDeviceCategory
   | InvalidDestinationDeviceType
   | InvalidDestinationInterface
   | InvalidDestinationInterfaceRole
   | InvalidDestinationInternetService
   | InvalidDestinationIp
+  | InvalidDestinationMac
+  | InvalidDestinationOsName
+  | InvalidDestinationOsVerson
   | InvalidDestinationPort
+  | InvalidDestinationServer
   | InvalidDestinationUuid
   | InvalidDeviceCategory
   | InvalidDeviceId
@@ -113,6 +118,7 @@ data DecodeException
   | InvalidLogDescription
   | InvalidLogId
   | InvalidMac
+  | InvalidMasterDestinationMac
   | InvalidMasterSourceMac
   | InvalidMessage
   | InvalidMethod
@@ -215,12 +221,17 @@ data Field
   | CountWeb {-# UNPACK #-} !Word64
   | Description {-# UNPACK #-} !Bytes
   | DestinationCountry {-# UNPACK #-} !Bytes
+  | DestinationDeviceCategory {-# UNPACK #-} !Bytes
   | DestinationDeviceType {-# UNPACK #-} !Bytes
   | DestinationInterface {-# UNPACK #-} !Bytes
   | DestinationInterfaceRole {-# UNPACK #-} !Bytes
   | DestinationInternetService {-# UNPACK #-} !Bytes
   | DestinationIp {-# UNPACK #-} !IP
+  | DestinationMac {-# UNPACK #-} !Net.Types.Mac
+  | DestinationOsName {-# UNPACK #-} !Bytes
+  | DestinationOsVersion {-# UNPACK #-} !Bytes
   | DestinationPort {-# UNPACK #-} !Word16
+  | DestinationServer {-# UNPACK #-} !Word64
   | DestinationUuid {-# UNPACK #-} !Word128
   | DeviceCategory {-# UNPACK #-} !Bytes
   | DeviceType {-# UNPACK #-} !Bytes
@@ -241,6 +252,7 @@ data Field
   | Level {-# UNPACK #-} !Bytes
   | LogDescription {-# UNPACK #-} !Bytes
   | Mac {-# UNPACK #-} !Net.Types.Mac
+  | MasterDestinationMac {-# UNPACK #-} !Net.Types.Mac
   | MasterSourceMac {-# UNPACK #-} !Net.Types.Mac
   | Message {-# UNPACK #-} !Bytes
   | Method {-# UNPACK #-} !Bytes
@@ -497,6 +509,13 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField5
     _ -> P.fail UnknownField5
   6 -> case G.hashString6 arr off of
+    G.H_dstmac -> case zequal6 arr off 'd' 's' 't' 'm' 'a' 'c' of
+      0# -> do
+        quoted <- Latin.trySatisfy (=='"')
+        r <- Mac.parserUtf8Bytes InvalidDestinationMac
+        when quoted (Latin.char InvalidDestinationMac '"')
+        pure (DestinationMac r)
+      _ -> P.fail UnknownField6
     G.H_srcmac -> case zequal6 arr off 's' 'r' 'c' 'm' 'a' 'c' of
       0# -> do
         quoted <- Latin.trySatisfy (=='"')
@@ -746,6 +765,16 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField8
     _ -> P.fail UnknownField8
   9 -> case G.hashString9 arr off of
+    G.H_dstserver -> case zequal9 arr off 'd' 's' 't' 's' 'e' 'r' 'v' 'e' 'r' of
+      0# -> do
+        val <- Latin.decWord64 InvalidDestinationServer
+        pure (DestinationServer val)
+      _ -> P.fail UnknownField9
+    G.H_dstosname -> case zequal9 arr off 'd' 's' 't' 'o' 's' 'n' 'a' 'm' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidDestinationOsName
+        pure (DestinationOsName val)
+      _ -> P.fail UnknownField9
     G.H_osversion -> case zequal9 arr off 'o' 's' 'v' 'e' 'r' 's' 'i' 'o' 'n' of
       0# -> do
         val <- asciiTextField InvalidOsVersion
@@ -896,6 +925,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField11
     _ -> P.fail UnknownField11
   12 -> case G.hashString12 arr off of
+    G.H_dstosversion -> case zequal12 arr off 'd' 's' 't' 'o' 's' 'v' 'e' 'r' 's' 'i' 'o' 'n' of
+      0# -> do
+        val <- asciiTextField InvalidDestinationOsVerson
+        pure (DestinationOsVersion val)
+      _ -> P.fail UnknownField12
     G.H_centralnatid -> case zequal12 arr off 'c' 'e' 'n' 't' 'r' 'a' 'l' 'n' 'a' 't' 'i' 'd' of
       0# -> do
         val <- Latin.decWord64 InvalidCentralNatId
@@ -918,12 +952,24 @@ afterEquals !b = case fromIntegral @Int @Word len of
         when quoted (Latin.char InvalidMasterSourceMac '"')
         pure (MasterSourceMac r)
       _ -> P.fail UnknownField12
+    G.H_masterdstmac -> case zequal12 arr off 'm' 'a' 's' 't' 'e' 'r' 'd' 's' 't' 'm' 'a' 'c' of
+      0# -> do
+        quoted <- Latin.trySatisfy (=='"')
+        r <- Mac.parserUtf8Bytes InvalidMasterDestinationMac
+        when quoted (Latin.char InvalidMasterDestinationMac '"')
+        pure (MasterDestinationMac r)
+      _ -> P.fail UnknownField12
     _ -> P.fail UnknownField12
   13 -> case zequal13 arr off 'u' 'r' 'l' 'f' 'i' 'l' 't' 'e' 'r' 'l' 'i' 's' 't' of
     0# -> do
       val <- asciiTextField InvalidUrlFilterList
       pure (UrlFilterList val)
     _ -> P.fail UnknownField13
+  14 -> case zequal14 arr off 'd' 's' 't' 'd' 'e' 'v' 'c' 'a' 't' 'e' 'g' 'o' 'r' 'y' of
+    0# -> do
+      val <- asciiTextField InvalidDestinationDeviceCategory
+      pure (DestinationDeviceCategory val)
+    _ -> P.fail UnknownField15
   16 -> case G.hashString16 arr off of
     G.H_incidentserialno -> case zequal16 arr off 'i' 'n' 'c' 'i' 'd' 'e' 'n' 't' 's' 'e' 'r' 'i' 'a' 'l' 'n' 'o' of
       0# -> do
@@ -1187,6 +1233,36 @@ zequal13 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# 
   zeqChar# (indexCharArray# arr (off +# 11#)) l
   `orI#`
   zeqChar# (indexCharArray# arr (off +# 12#)) m
+
+zequal14 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
+zequal14 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g) (C# h) (C# i) (C# j) (C# k) (C# l) (C# m) (C# n) =
+  zeqChar# (indexCharArray# arr off) a
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 1#)) b
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 2#)) c
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 3#)) d
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 4#)) e
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 5#)) f
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 6#)) g
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 7#)) h
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 8#)) i
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 9#)) j
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 10#)) k
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 11#)) l
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 12#)) m
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 13#)) n
 
 zequal16 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
 zequal16 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g) (C# h) (C# i) (C# j) (C# k) (C# l) (C# m) (C# n) (C# o) (C# p) =

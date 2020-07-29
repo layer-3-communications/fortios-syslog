@@ -124,6 +124,7 @@ allKeywords =
   , "srcserver"
   , "srcswversion"
   , "srcuuid"
+  , "sslaction"
   , "trandisp"
   , "tz"
   , "unauthuser"

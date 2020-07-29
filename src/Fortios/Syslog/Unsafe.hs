@@ -154,6 +154,7 @@ data DecodeException
   | InvalidSourceServer
   | InvalidSourceSoftwareVersion
   | InvalidSourceUuid
+  | InvalidSslAction
   | InvalidSslCertificateCommonName
   | InvalidSslCertificateIssuer
   | InvalidSubtype
@@ -294,6 +295,7 @@ data Field
   | SourceServer {-# UNPACK #-} !Word64
   | SourceSoftwareVersion {-# UNPACK #-} !Bytes
   | SourceUuid {-# UNPACK #-} !Word128
+  | SslAction {-# UNPACK #-} !Bytes
   | SslCertificateCommonName {-# UNPACK #-} !Bytes
   | SslCertificateIssuer {-# UNPACK #-} !Bytes
   | TimeZone {-# UNPACK #-} !Int -- ^ Offset from UTC in minutes
@@ -774,6 +776,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       0# -> do
         val <- asciiTextField InvalidDestinationOsName
         pure (DestinationOsName val)
+      _ -> P.fail UnknownField9
+    G.H_sslaction -> case zequal9 arr off 's' 's' 'l' 'a' 'c' 't' 'i' 'o' 'n' of
+      0# -> do
+        val <- asciiTextField InvalidSslAction
+        pure (SslAction val)
       _ -> P.fail UnknownField9
     G.H_osversion -> case zequal9 arr off 'o' 's' 'v' 'e' 'r' 's' 'i' 'o' 'n' of
       0# -> do

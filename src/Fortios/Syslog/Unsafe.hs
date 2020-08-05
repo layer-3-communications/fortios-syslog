@@ -170,11 +170,14 @@ data DecodeException
   | InvalidUrl
   | InvalidUrlFilterList
   | InvalidUrlFilterIndex
+  | InvalidUrlSource
   | InvalidUser
   | InvalidUtmAction
   | InvalidVirtualDomain
   | InvalidVirtualWanLinkId
   | InvalidVirtualWanLinkQuality
+  | InvalidVpn
+  | InvalidVpnType
   | InvalidWanIn
   | InvalidWanOut
   | UnknownField
@@ -306,12 +309,15 @@ data Field
   | UnauthenticatedUserSource {-# UNPACK #-} !Bytes
   | UtmAction {-# UNPACK #-} !Bytes
   | Url {-# UNPACK #-} !Bytes
+  | UrlSource {-# UNPACK #-} !Bytes
   | UrlFilterIndex {-# UNPACK #-} !Word64
   | UrlFilterList {-# UNPACK #-} !Bytes
   | User {-# UNPACK #-} !Bytes
   | VirtualDomain {-# UNPACK #-} !Bytes
   | VirtualWanLinkId {-# UNPACK #-} !Word64
   | VirtualWanLinkQuality {-# UNPACK #-} !Bytes
+  | Vpn {-# UNPACK #-} !Bytes
+  | VpnType {-# UNPACK #-} !Bytes
   | WanIn {-# UNPACK #-} !Word64
   | WanOut {-# UNPACK #-} !Word64
 
@@ -410,6 +416,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         when quoted (Latin.char InvalidMac '"')
         pure (Mac r)
       _ -> P.fail UnknownField3
+    G.H_vpn -> case zequal3 arr off 'v' 'p' 'n' of
+      0# -> do
+        val <- asciiTextField InvalidVpn
+        pure (Vpn val)
+      _ -> P.fail UnknownField3
     G.H_app -> case zequal3 arr off 'a' 'p' 'p' of
       0# -> do
         val <- asciiTextField InvalidApp
@@ -456,7 +467,7 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField5
     G.H_alert -> case zequal5 arr off 'a' 'l' 'e' 'r' 't' of
       0# -> do
-        val <- Latin.decWord64 InvalidAlert
+        val <- optQuotedDecWord64 InvalidAlert
         pure (Alert val)
       _ -> P.fail UnknownField5
     G.H_vwlid -> case zequal5 arr off 'v' 'w' 'l' 'i' 'd' of
@@ -581,6 +592,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       0# -> do
         w <- uuidField InvalidPolicyUuid
         pure (PolicyUuid w)
+      _ -> P.fail UnknownField7
+    G.H_vpntype -> case zequal7 arr off 'v' 'p' 'n' 't' 'y' 'p' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidVpnType
+        pure (VpnType val)
       _ -> P.fail UnknownField7
     G.H_devtype -> case zequal7 arr off 'd' 'e' 'v' 't' 'y' 'p' 'e' of
       0# -> do
@@ -771,6 +787,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       0# -> do
         val <- Latin.decWord64 InvalidDestinationServer
         pure (DestinationServer val)
+      _ -> P.fail UnknownField9
+    G.H_urlsource -> case zequal9 arr off 'u' 'r' 'l' 's' 'o' 'u' 'r' 'c' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidUrlSource
+        pure (UrlSource val)
       _ -> P.fail UnknownField9
     G.H_dstosname -> case zequal9 arr off 'd' 's' 't' 'o' 's' 'n' 'a' 'm' 'e' of
       0# -> do
@@ -1020,6 +1041,13 @@ snatAndDnatFinish = do
   Latin.char InvalidTranslationDisposition ' '
   _ <- snatFinish
   pure (TranslatedDestination ip port)
+
+-- Field is optionally surrounded by quotes. This does not
+-- consume a trailing space.
+optQuotedDecWord64 :: e -> Parser e s Word64
+optQuotedDecWord64 e = Latin.trySatisfy (== '"') >>= \case
+  True -> Latin.decWord64 e <* Latin.char e '"'
+  False -> Latin.decWord64 e
 
 -- Field is optionally surrounded by quotes. This does not
 -- consume a trailing space.

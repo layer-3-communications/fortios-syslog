@@ -554,7 +554,7 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     G.H_srcip -> case zequal5 arr off 's' 'r' 'c' 'i' 'p' of
       0# -> do
-        val <- IP.parserUtf8Bytes InvalidSourceIp
+        val <- optQuotedIp InvalidSourceIp
         let !atom = SourceIp val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
@@ -803,10 +803,15 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     G.H_tunnelip -> case zequal8 arr off 't' 'u' 'n' 'n' 'e' 'l' 'i' 'p' of
-      0# -> do
-        val <- IP.parserUtf8Bytes InvalidTunnelIp
-        let !atom = TunnelIp val
-        P.effect (Builder.push atom b0)
+      -- Sometimes tunnelip is: N/A. In this case, we omit it.
+      0# -> Latin.trySatisfy (== 'N') >>= \case
+        True -> do
+          Latin.char2 InvalidTunnelIp '/' 'A'
+          pure b0
+        False -> do
+          val <- IP.parserUtf8Bytes InvalidTunnelIp
+          let !atom = TunnelIp val
+          P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     G.H_tunnelid -> case zequal8 arr off 't' 'u' 'n' 'n' 'e' 'l' 'i' 'd' of
       0# -> do
@@ -1243,6 +1248,11 @@ snatAndDnatFinish b0 = do
   b1 <- snatFinish b0
   let !atom = TranslatedDestination ip port
   P.effect (Builder.push atom b1)
+
+optQuotedIp :: e -> Parser e s IP
+optQuotedIp e = Latin.trySatisfy (== '"') >>= \case
+  True -> IP.parserUtf8Bytes e <* Latin.char e '"'
+  False -> IP.parserUtf8Bytes e
 
 -- Field is optionally surrounded by quotes. This does not
 -- consume a trailing space.

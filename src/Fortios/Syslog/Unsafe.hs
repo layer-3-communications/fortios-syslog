@@ -180,6 +180,7 @@ data DecodeException
   | InvalidType
   | InvalidUnauthenticatedUser
   | InvalidUnauthenticatedUserSource
+  | InvalidUnknownField
   | InvalidUrl
   | InvalidUrlFilterList
   | InvalidUrlFilterIndex
@@ -193,22 +194,6 @@ data DecodeException
   | InvalidVpnType
   | InvalidWanIn
   | InvalidWanOut
-  | UnknownField
-  | UnknownField2
-  | UnknownField3
-  | UnknownField4
-  | UnknownField5
-  | UnknownField6
-  | UnknownField7
-  | UnknownField8
-  | UnknownField9
-  | UnknownField10
-  | UnknownField11
-  | UnknownField12
-  | UnknownField13
-  | UnknownField14
-  | UnknownField15
-  | UnknownField16
   deriving (Show)
 
 data Field
@@ -325,7 +310,6 @@ data Field
   | SslCertificateIssuer {-# UNPACK #-} !Bytes
   | TimeZone {-# UNPACK #-} !Int -- ^ Offset from UTC in minutes
   | TransactionId {-# UNPACK #-} !Word64 -- ^ Field is named @xid@.
-  | TranslatedNone -- ^ When @trandisp@ is @noop@
   | TranslatedSource {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
   | TranslatedDestination {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
   | TunnelId {-# UNPACK #-} !Word64
@@ -409,542 +393,640 @@ fieldsParser !b0 = P.isEndOfInput >>= \case
   False -> do
     Latin.char ExpectedSpace ' '
     name <- P.takeTrailedBy IncompleteKey (c2w '=')
-    !fld <- afterEquals name
-    b1 <- P.effect (Builder.push fld b0)
+    !b1 <- afterEquals name b0
     fieldsParser b1
 
-afterEquals :: Bytes -> Parser DecodeException s Field
-afterEquals !b = case fromIntegral @Int @Word len of
+discardUnknownField :: Builder s Field -> Parser DecodeException s (Builder s Field)
+discardUnknownField !b0 = do
+  _ <- asciiTextField InvalidUnknownField
+  pure b0
+
+afterEquals :: Bytes -> Builder s Field -> Parser DecodeException s (Builder s Field)
+afterEquals !b !b0 = case fromIntegral @Int @Word len of
   2 -> case G.hashString2 arr off of
     G.H_vd -> case zequal2 arr off 'v' 'd' of
       0# -> do
         val <- asciiTextField InvalidVirtualDomain
-        pure (VirtualDomain val)
-      _ -> P.fail UnknownField2
+        let !atom = VirtualDomain val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_ip -> case zequal2 arr off 'i' 'p' of
       0# -> do
         val <- IP.parserUtf8Bytes InvalidIp
-        pure (Ip val)
-      _ -> P.fail UnknownField2
+        let !atom = Ip val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_tz -> case zequal2 arr off 't' 'z' of
       0# -> do
         Latin.char InvalidTimeZone '"'
         val <- Latin.decSignedInt InvalidTimeZone
         Latin.char InvalidTimeZone '"'
-        pure (TimeZone val)
-      _ -> P.fail UnknownField2
-    _ -> P.fail UnknownField2
+        let !atom = TimeZone val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   3 -> case G.hashString3 arr off of
     G.H_mac -> case zequal3 arr off 'm' 'a' 'c' of
       0# -> do
         quoted <- Latin.trySatisfy (=='"')
         r <- Mac.parserUtf8Bytes InvalidMac
         when quoted (Latin.char InvalidMac '"')
-        pure (Mac r)
-      _ -> P.fail UnknownField3
+        let !atom = Mac r
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_vpn -> case zequal3 arr off 'v' 'p' 'n' of
       0# -> do
         val <- asciiTextField InvalidVpn
-        pure (Vpn val)
-      _ -> P.fail UnknownField3
+        let !atom = Vpn val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_app -> case zequal3 arr off 'a' 'p' 'p' of
       0# -> do
         val <- asciiTextField InvalidApp
-        pure (App val)
-      _ -> P.fail UnknownField3
+        let !atom = App val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_url -> case zequal3 arr off 'u' 'r' 'l' of
       0# -> do
         val <- asciiTextField InvalidUrl
-        pure (Url val)
-      _ -> P.fail UnknownField3
+        let !atom = Url val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_msg -> case zequal3 arr off 'm' 's' 'g' of
       0# -> do
         val <- asciiTextField InvalidMessage
-        pure (Message val)
-      _ -> P.fail UnknownField3
+        let !atom = Message val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_ref -> case zequal3 arr off 'r' 'e' 'f' of
       0# -> do
         val <- asciiTextField InvalidReference
-        pure (Reference val)
-      _ -> P.fail UnknownField3
+        let !atom = Reference val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_xid -> case zequal3 arr off 'x' 'i' 'd' of
       0# -> do
         val <- Latin.decWord64 InvalidTransactionId
-        pure (TransactionId val)
-      _ -> P.fail UnknownField3
+        let !atom = TransactionId val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_cat -> case zequal3 arr off 'c' 'a' 't' of
       0# -> do
         val <- Latin.decWord64 InvalidCategory
-        pure (Category val)
-      _ -> P.fail UnknownField3
-    _ -> P.fail UnknownField3
+        let !atom = Category val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   4 -> case G.hashString4 arr off of
     G.H_user -> case zequal4 arr off 'u' 's' 'e' 'r' of
       0# -> do
         val <- asciiTextField InvalidUser
-        pure (User val)
-      _ -> P.fail UnknownField4
+        let !atom = User val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_desc -> case zequal4 arr off 'd' 'e' 's' 'c' of
       0# -> do
         val <- asciiTextField InvalidDescription
-        pure (Description val)
-      _ -> P.fail UnknownField4
-    _ -> P.fail UnknownField4
+        let !atom = Description val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   5 -> case G.hashString5 arr off of
     G.H_remip -> case zequal5 arr off 'r' 'e' 'm' 'i' 'p' of
       0# -> do
         val <- IP.parserUtf8Bytes InvalidRemoteIp
-        pure (RemoteIp val)
-      _ -> P.fail UnknownField5
+        let !atom = RemoteIp val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_qname -> case zequal5 arr off 'q' 'n' 'a' 'm' 'e' of
       0# -> do
         val <- asciiTextField InvalidQueryName
-        pure (QueryName val)
-      _ -> P.fail UnknownField5
+        let !atom = QueryName val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_qtype -> case zequal5 arr off 'q' 't' 'y' 'p' 'e' of
       0# -> do
         val <- asciiTextField InvalidQueryType
-        pure (QueryType val)
-      _ -> P.fail UnknownField5
+        let !atom = QueryType val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_group -> case zequal5 arr off 'g' 'r' 'o' 'u' 'p' of
       0# -> do
         val <- asciiTextField InvalidGroup
-        pure (Group val)
-      _ -> P.fail UnknownField5
+        let !atom = Group val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_alert -> case zequal5 arr off 'a' 'l' 'e' 'r' 't' of
       0# -> do
         val <- optQuotedDecWord64 InvalidAlert
-        pure (Alert val)
-      _ -> P.fail UnknownField5
+        let !atom = Alert val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_vwlid -> case zequal5 arr off 'v' 'w' 'l' 'i' 'd' of
       0# -> do
         val <- Latin.decWord64 InvalidVirtualWanLinkId
-        pure (VirtualWanLinkId val)
-      _ -> P.fail UnknownField5
+        let !atom = VirtualWanLinkId val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_appid -> case zequal5 arr off 'a' 'p' 'p' 'i' 'd' of
       0# -> do
         val <- Latin.decWord64 InvalidApplicationId
-        pure (ApplicationId val)
-      _ -> P.fail UnknownField5
+        let !atom = ApplicationId val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_lease -> case zequal5 arr off 'l' 'e' 'a' 's' 'e' of
       0# -> do
         val <- Latin.decWord64 InvalidLease
-        pure (Lease val)
-      _ -> P.fail UnknownField5
+        let !atom = Lease val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_wanin -> case zequal5 arr off 'w' 'a' 'n' 'i' 'n' of
       0# -> do
         val <- Latin.decWord64 InvalidWanIn
-        pure (WanIn val)
-      _ -> P.fail UnknownField5
+        let !atom = WanIn val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_lanin -> case zequal5 arr off 'l' 'a' 'n' 'i' 'n' of
       0# -> do
         val <- Latin.decWord64 InvalidLanIn
-        pure (LanIn val)
-      _ -> P.fail UnknownField5
+        let !atom = LanIn val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srcip -> case zequal5 arr off 's' 'r' 'c' 'i' 'p' of
       0# -> do
         val <- IP.parserUtf8Bytes InvalidSourceIp
-        pure (SourceIp val)
-      _ -> P.fail UnknownField5
+        let !atom = SourceIp val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstip -> case zequal5 arr off 'd' 's' 't' 'i' 'p' of
       0# -> do
         val <- IP.parserUtf8Bytes InvalidDestinationIp
-        pure (DestinationIp val)
-      _ -> P.fail UnknownField5
+        let !atom = DestinationIp val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_level -> case zequal5 arr off 'l' 'e' 'v' 'e' 'l' of
       0# -> do
         val <- asciiTextField InvalidLevel
-        pure (Level val)
-      _ -> P.fail UnknownField5
+        let !atom = Level val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_error -> case zequal5 arr off 'e' 'r' 'r' 'o' 'r' of
       0# -> do
         val <- asciiTextField InvalidError
-        pure (Level val)
-      _ -> P.fail UnknownField5
+        let !atom = Level val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_proto -> case zequal5 arr off 'p' 'r' 'o' 't' 'o' of
       0# -> do
         val <- Latin.decWord8 InvalidProtocol
-        pure (Protocol val)
-      _ -> P.fail UnknownField5
-    _ -> P.fail UnknownField5
+        let !atom = Protocol val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   6 -> case G.hashString6 arr off of
     G.H_qclass -> case zequal6 arr off 'q' 'c' 'l' 'a' 's' 's' of
       0# -> do
         val <- asciiTextField InvalidQueryClass
-        pure (QueryClass val)
-      _ -> P.fail UnknownField6
+        let !atom = QueryClass val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstmac -> case zequal6 arr off 'd' 's' 't' 'm' 'a' 'c' of
       0# -> do
         quoted <- Latin.trySatisfy (=='"')
         r <- Mac.parserUtf8Bytes InvalidDestinationMac
         when quoted (Latin.char InvalidDestinationMac '"')
-        pure (DestinationMac r)
-      _ -> P.fail UnknownField6
+        let !atom = DestinationMac r
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srcmac -> case zequal6 arr off 's' 'r' 'c' 'm' 'a' 'c' of
       0# -> do
         quoted <- Latin.trySatisfy (=='"')
         r <- Mac.parserUtf8Bytes InvalidSourceMac
         when quoted (Latin.char InvalidSourceMac '"')
-        pure (SourceMac r)
-      _ -> P.fail UnknownField6
+        let !atom = SourceMac r
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_appact -> case zequal6 arr off 'a' 'p' 'p' 'a' 'c' 't' of
       0# -> do
         val <- asciiTextField InvalidApplicationAction
-        pure (ApplicationAction val)
-      _ -> P.fail UnknownField6
+        let !atom = ApplicationAction val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_appcat -> case zequal6 arr off 'a' 'p' 'p' 'c' 'a' 't' of
       0# -> do
         val <- asciiTextField InvalidApplicationCategory
-        pure (ApplicationCategory val)
-      _ -> P.fail UnknownField6
+        let !atom = ApplicationCategory val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_attack -> case zequal6 arr off 'a' 't' 't' 'a' 'c' 'k' of
       0# -> do
         val <- asciiTextField InvalidAttack
-        pure (Attack val)
-      _ -> P.fail UnknownField6
+        let !atom = Attack val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_action -> case zequal6 arr off 'a' 'c' 't' 'i' 'o' 'n' of
       0# -> do
         val <- asciiTextField InvalidAction
-        pure (Action val)
-      _ -> P.fail UnknownField6
+        let !atom = Action val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_method -> case zequal6 arr off 'm' 'e' 't' 'h' 'o' 'd' of
       0# -> do
         val <- asciiTextField InvalidMethod
-        pure (Method val)
-      _ -> P.fail UnknownField6
+        let !atom = Method val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_wanout -> case zequal6 arr off 'w' 'a' 'n' 'o' 'u' 't' of
       0# -> do
         val <- Latin.decWord64 InvalidWanOut
-        pure (WanOut val)
-      _ -> P.fail UnknownField6
+        let !atom = WanOut val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_lanout -> case zequal6 arr off 'l' 'a' 'n' 'o' 'u' 't' of
       0# -> do
         val <- Latin.decWord64 InvalidLanOut
-        pure (LanOut val)
-      _ -> P.fail UnknownField6
+        let !atom = LanOut val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_osname -> case zequal6 arr off 'o' 's' 'n' 'a' 'm' 'e' of
       0# -> do
         val <- asciiTextField InvalidOsName
-        pure (OsName val)
-      _ -> P.fail UnknownField6
-    _ -> P.fail UnknownField6
+        let !atom = OsName val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   7 -> case G.hashString7 arr off of
     G.H_srcuuid -> case zequal7 arr off 's' 'r' 'c' 'u' 'u' 'i' 'd' of
       0# -> do
         w <- uuidField InvalidSourceUuid
-        pure (SourceUuid w)
-      _ -> P.fail UnknownField7
+        let !atom = SourceUuid w
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstuuid -> case zequal7 arr off 'd' 's' 't' 'u' 'u' 'i' 'd' of
       0# -> do
         w <- uuidField InvalidDestinationUuid
-        pure (DestinationUuid w)
-      _ -> P.fail UnknownField7
+        let !atom = DestinationUuid w
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_poluuid -> case zequal7 arr off 'p' 'o' 'l' 'u' 'u' 'i' 'd' of
       0# -> do
         w <- uuidField InvalidPolicyUuid
-        pure (PolicyUuid w)
-      _ -> P.fail UnknownField7
+        let !atom = PolicyUuid w
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_vpntype -> case zequal7 arr off 'v' 'p' 'n' 't' 'y' 'p' 'e' of
       0# -> do
         val <- asciiTextField InvalidVpnType
-        pure (VpnType val)
-      _ -> P.fail UnknownField7
+        let !atom = VpnType val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_devtype -> case zequal7 arr off 'd' 'e' 'v' 't' 'y' 'p' 'e' of
       0# -> do
         val <- asciiTextField InvalidDeviceType
-        pure (DeviceType val)
-      _ -> P.fail UnknownField7
+        let !atom = DeviceType val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srcname -> case zequal7 arr off 's' 'r' 'c' 'n' 'a' 'm' 'e' of
       0# -> do
         val <- asciiTextField InvalidSourceName
-        pure (SourceName val)
-      _ -> P.fail UnknownField7
+        let !atom = SourceName val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_applist -> case zequal7 arr off 'a' 'p' 'p' 'l' 'i' 's' 't' of
       0# -> do
         val <- asciiTextField InvalidApplicationList
-        pure (ApplicationList val)
-      _ -> P.fail UnknownField7
+        let !atom = ApplicationList val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_apprisk -> case zequal7 arr off 'a' 'p' 'p' 'r' 'i' 's' 'k' of
       0# -> do
         val <- asciiTextField InvalidApplicationRisk
-        pure (ApplicationRisk val)
-      _ -> P.fail UnknownField7
+        let !atom = ApplicationRisk val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_logdesc -> case zequal7 arr off 'l' 'o' 'g' 'd' 'e' 's' 'c' of
       0# -> do
         val <- asciiTextField InvalidLogDescription
-        pure (LogDescription val)
-      _ -> P.fail UnknownField7
+        let !atom = LogDescription val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_reqtype -> case zequal7 arr off 'r' 'e' 'q' 't' 'y' 'p' 'e' of
       0# -> do
         val <- asciiTextField InvalidRequestType
-        pure (RequestType val)
-      _ -> P.fail UnknownField7
+        let !atom = RequestType val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_crscore -> case zequal7 arr off 'c' 'r' 's' 'c' 'o' 'r' 'e' of
       0# -> do
         val <- Latin.decWord64 InvalidClientReputationScore
-        pure (ClientReputationScore val)
-      _ -> P.fail UnknownField7
+        let !atom = ClientReputationScore val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_crlevel -> case zequal7 arr off 'c' 'r' 'l' 'e' 'v' 'e' 'l' of
       0# -> do
         val <- asciiTextField InvalidClientReputationLevel
-        pure (ClientReputationLevel val)
-      _ -> P.fail UnknownField7
+        let !atom = ClientReputationLevel val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_catdesc -> case zequal7 arr off 'c' 'a' 't' 'd' 'e' 's' 'c' of
       0# -> do
         val <- asciiTextField InvalidCategoryDescription
-        pure (CategoryDescription val)
-      _ -> P.fail UnknownField7
+        let !atom = CategoryDescription val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srcintf -> case zequal7 arr off 's' 'r' 'c' 'i' 'n' 't' 'f' of
       0# -> do
         val <- asciiTextField InvalidSourceInterface
-        pure (SourceInterface val)
-      _ -> P.fail UnknownField7
+        let !atom = SourceInterface val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstintf -> case zequal7 arr off 'd' 's' 't' 'i' 'n' 't' 'f' of
       0# -> do
         val <- asciiTextField InvalidDestinationInterface
-        pure (DestinationInterface val)
-      _ -> P.fail UnknownField7
+        let !atom = DestinationInterface val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_locport -> case zequal7 arr off 'l' 'o' 'c' 'p' 'o' 'r' 't' of
       0# -> do
         val <- Latin.decWord16 InvalidLocalPort
-        pure (LocalPort val)
-      _ -> P.fail UnknownField7
+        let !atom = LocalPort val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_remport -> case zequal7 arr off 'r' 'e' 'm' 'p' 'o' 'r' 't' of
       0# -> do
         val <- Latin.decWord16 InvalidRemotePort
-        pure (RemotePort val)
-      _ -> P.fail UnknownField7
+        let !atom = RemotePort val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srcport -> case zequal7 arr off 's' 'r' 'c' 'p' 'o' 'r' 't' of
       0# -> do
         val <- Latin.decWord16 InvalidSourcePort
-        pure (SourcePort val)
-      _ -> P.fail UnknownField7
+        let !atom = SourcePort val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstport -> case zequal7 arr off 'd' 's' 't' 'p' 'o' 'r' 't' of
       0# -> do
         val <- Latin.decWord16 InvalidDestinationPort
-        pure (DestinationPort val)
-      _ -> P.fail UnknownField7
+        let !atom = DestinationPort val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_service -> case zequal7 arr off 's' 'e' 'r' 'v' 'i' 'c' 'e' of
       0# -> do
         val <- asciiTextField InvalidService
-        pure (Service val)
-      _ -> P.fail UnknownField7
+        let !atom = Service val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_sentpkt -> case zequal7 arr off 's' 'e' 'n' 't' 'p' 'k' 't' of
       0# -> do
         val <- Latin.decWord64 InvalidSentPackets
-        pure (SentPackets val)
-      _ -> P.fail UnknownField7
+        let !atom = SentPackets val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_rcvdpkt -> case zequal7 arr off 'r' 'c' 'v' 'd' 'p' 'k' 't' of
       0# -> do
         val <- Latin.decWord64 InvalidReceivedPackets
-        pure (ReceivedPackets val)
-      _ -> P.fail UnknownField7
+        let !atom = ReceivedPackets val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_profile -> case zequal7 arr off 'p' 'r' 'o' 'f' 'i' 'l' 'e' of
       0# -> do
         val <- asciiTextField InvalidProfile
-        pure (Profile val)
-      _ -> P.fail UnknownField7
-    _ -> P.fail UnknownField7
+        let !atom = Profile val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   8 -> case G.hashString8 arr off of
     G.H_qtypeval -> case zequal8 arr off 'q' 't' 'y' 'p' 'e' 'v' 'a' 'l' of
       0# -> do
         val <- Latin.decWord64 InvalidQueryTypeValue
-        pure (QueryTypeValue val)
-      _ -> P.fail UnknownField8
+        let !atom = QueryTypeValue val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_tunnelip -> case zequal8 arr off 't' 'u' 'n' 'n' 'e' 'l' 'i' 'p' of
       0# -> do
         val <- IP.parserUtf8Bytes InvalidTunnelIp
-        pure (TunnelIp val)
-      _ -> P.fail UnknownField8
+        let !atom = TunnelIp val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_tunnelid -> case zequal8 arr off 't' 'u' 'n' 'n' 'e' 'l' 'i' 'd' of
       0# -> do
         val <- Latin.decWord64 InvalidTunnelId
-        pure (TunnelId val)
-      _ -> P.fail UnknownField8
+        let !atom = TunnelId val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dst_host -> case zequal8 arr off 'd' 's' 't' '_' 'h' 'o' 's' 't' of
       0# -> do
         val <- asciiTextField InvalidDestinationHost
-        pure (DestinationHost val)
-      _ -> P.fail UnknownField8
+        let !atom = DestinationHost val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dhcp_msg -> case zequal8 arr off 'd' 'h' 'c' 'p' '_' 'm' 's' 'g' of
       0# -> do
         val <- asciiTextField InvalidDhcpMessage
-        pure (DhcpMessage val)
-      _ -> P.fail UnknownField8
+        let !atom = DhcpMessage val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_nextstat -> case zequal8 arr off 'n' 'e' 'x' 't' 's' 't' 'a' 't' of
       0# -> do
         val <- Latin.decWord64 InvalidNextStatistics
-        pure (NextStatistics val)
-      _ -> P.fail UnknownField8
+        let !atom = NextStatistics val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_attackid -> case zequal8 arr off 'a' 't' 't' 'a' 'c' 'k' 'i' 'd' of
       0# -> do
         val <- Latin.decWord64 InvalidAttackId
-        pure (AttackId val)
-      _ -> P.fail UnknownField8
+        let !atom = AttackId val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_countips -> case zequal8 arr off 'c' 'o' 'u' 'n' 't' 'i' 'p' 's' of
       0# -> do
         val <- Latin.decWord64 InvalidCountIps
-        pure (CountIps val)
-      _ -> P.fail UnknownField8
+        let !atom = CountIps val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_hostname -> case zequal8 arr off 'h' 'o' 's' 't' 'n' 'a' 'm' 'e' of
       0# -> do
         val <- asciiTextField InvalidHostname
-        pure (Hostname val)
-      _ -> P.fail UnknownField8
+        let !atom = Hostname val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_craction -> case zequal8 arr off 'c' 'r' 'a' 'c' 't' 'i' 'o' 'n' of
       0# -> do
         val <- asciiTextField InvalidClientReputationAction
-        pure (ClientReputationAction val)
-      _ -> P.fail UnknownField8
+        let !atom = ClientReputationAction val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_severity -> case zequal8 arr off 's' 'e' 'v' 'e' 'r' 'i' 't' 'y' of
       0# -> do
         val <- asciiTextField InvalidSeverity
-        pure (Severity val)
-      _ -> P.fail UnknownField8
+        let !atom = Severity val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_policyid -> case zequal8 arr off 'p' 'o' 'l' 'i' 'c' 'y' 'i' 'd' of
       0# -> do
         val <- Latin.decWord64 InvalidPolicyId
-        pure (PolicyId val)
-      _ -> P.fail UnknownField8
+        let !atom = PolicyId val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_duration -> case zequal8 arr off 'd' 'u' 'r' 'a' 't' 'i' 'o' 'n' of
       0# -> do
         val <- Latin.decWord64 InvalidDuration
-        pure (Duration val)
-      _ -> P.fail UnknownField8
+        let !atom = Duration val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_sentbyte -> case zequal8 arr off 's' 'e' 'n' 't' 'b' 'y' 't' 'e' of
       0# -> do
         val <- Latin.decWord64 InvalidSentBytes
-        pure (SentBytes val)
-      _ -> P.fail UnknownField8
+        let !atom = SentBytes val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_rcvdbyte -> case zequal8 arr off 'r' 'c' 'v' 'd' 'b' 'y' 't' 'e' of
       0# -> do
         val <- Latin.decWord64 InvalidReceivedBytes
-        pure (ReceivedBytes val)
-      _ -> P.fail UnknownField8
+        let !atom = ReceivedBytes val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_countweb -> case zequal8 arr off 'c' 'o' 'u' 'n' 't' 'w' 'e' 'b' of
       0# -> do
         val <- Latin.decWord64 InvalidCountWeb
-        pure (CountWeb val)
-      _ -> P.fail UnknownField8
+        let !atom = CountWeb val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_countapp -> case zequal8 arr off 'c' 'o' 'u' 'n' 't' 'a' 'p' 'p' of
       0# -> do
         val <- Latin.decWord64 InvalidCountApplication
-        pure (CountApplication val)
-      _ -> P.fail UnknownField8
+        let !atom = CountApplication val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_trandisp -> case zequal8 arr off 't' 'r' 'a' 'n' 'd' 'i' 's' 'p' of
       0# -> Latin.any InvalidTranslationDisposition >>= \case
         '"' -> Latin.any InvalidTranslationDisposition >>= \case
           'n' -> do
             Latin.char4 InvalidTranslationDisposition 'o' 'o' 'p' '"'
-            pure TranslatedNone
+            pure b0
           'd' -> do
             Latin.char5 InvalidTranslationDisposition 'n' 'a' 't' '"' ' '
-            dnatFinish
+            dnatFinish b0
           's' -> do
             Latin.char3 InvalidTranslationDisposition 'n' 'a' 't'
             Latin.trySatisfy (== '+') >>= \case
               False -> do
                 Latin.char2 InvalidTranslationDisposition '"' ' '
-                snatFinish
+                snatFinish b0
               True -> do
                 Latin.char6 InvalidTranslationDisposition 'd' 'n' 'a' 't' '"' ' '
-                snatAndDnatFinish
+                snatAndDnatFinish b0
           _ -> P.fail InvalidTranslationDisposition
         'n' -> do
           Latin.char3 InvalidTranslationDisposition 'o' 'o' 'p'
-          pure TranslatedNone
+          pure b0
         'd' -> do
           Latin.char4 InvalidTranslationDisposition 'n' 'a' 't' ' '
-          dnatFinish
+          dnatFinish b0
         's' -> do
           Latin.char3 InvalidTranslationDisposition 'n' 'a' 't'
           Latin.trySatisfy (== '+') >>= \case
             False -> do
               Latin.char InvalidTranslationDisposition ' '
-              snatFinish
+              snatFinish b0
             True -> do
               Latin.char5 InvalidTranslationDisposition 'd' 'n' 'a' 't' ' '
-              snatAndDnatFinish
+              snatAndDnatFinish b0
         _ -> P.fail InvalidTranslationDisposition
-      _ -> P.fail UnknownField8
-    _ -> P.fail UnknownField8
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   9 -> case G.hashString9 arr off of
     G.H_dstserver -> case zequal9 arr off 'd' 's' 't' 's' 'e' 'r' 'v' 'e' 'r' of
       0# -> do
         val <- Latin.decWord64 InvalidDestinationServer
-        pure (DestinationServer val)
-      _ -> P.fail UnknownField9
+        let !atom = DestinationServer val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_urlsource -> case zequal9 arr off 'u' 'r' 'l' 's' 'o' 'u' 'r' 'c' 'e' of
       0# -> do
         val <- asciiTextField InvalidUrlSource
-        pure (UrlSource val)
-      _ -> P.fail UnknownField9
+        let !atom = UrlSource val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstosname -> case zequal9 arr off 'd' 's' 't' 'o' 's' 'n' 'a' 'm' 'e' of
       0# -> do
         val <- asciiTextField InvalidDestinationOsName
-        pure (DestinationOsName val)
-      _ -> P.fail UnknownField9
+        let !atom = DestinationOsName val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_sslaction -> case zequal9 arr off 's' 's' 'l' 'a' 'c' 't' 'i' 'o' 'n' of
       0# -> do
         val <- asciiTextField InvalidSslAction
-        pure (SslAction val)
-      _ -> P.fail UnknownField9
+        let !atom = SslAction val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_osversion -> case zequal9 arr off 'o' 's' 'v' 'e' 'r' 's' 'i' 'o' 'n' of
       0# -> do
         val <- asciiTextField InvalidOsVersion
-        pure (OsVersion val)
-      _ -> P.fail UnknownField9
+        let !atom = OsVersion val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srcserver -> case zequal9 arr off 's' 'r' 'c' 's' 'e' 'r' 'v' 'e' 'r' of
       0# -> do
         val <- Latin.decWord64 InvalidSourceServer
-        pure (SourceServer val)
-      _ -> P.fail UnknownField9
+        let !atom = SourceServer val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_interface -> case zequal9 arr off 'i' 'n' 't' 'e' 'r' 'f' 'a' 'c' 'e' of
       0# -> do
         val <- asciiTextField InvalidInterface
-        pure (Interface val)
-      _ -> P.fail UnknownField9
+        let !atom = Interface val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_sessionid -> case zequal9 arr off 's' 'e' 's' 's' 'i' 'o' 'n' 'i' 'd' of
       0# -> do
         val <- Latin.decWord64 InvalidSessionId
-        pure (SessionId val)
-      _ -> P.fail UnknownField9
+        let !atom = SessionId val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_eventtype -> case zequal9 arr off 'e' 'v' 'e' 'n' 't' 't' 'y' 'p' 'e' of
       0# -> do
         val <- asciiTextField InvalidEventType
-        pure (EventType val)
-      _ -> P.fail UnknownField9
+        let !atom = EventType val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_eventtime -> case zequal9 arr off 'e' 'v' 'e' 'n' 't' 't' 'i' 'm' 'e' of
       0# -> do
         val <- Latin.decWord64 InvalidEventTime
-        pure (EventTime val)
-      _ -> P.fail UnknownField9
+        let !atom = EventTime val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_utmaction -> case zequal9 arr off 'u' 't' 'm' 'a' 'c' 't' 'i' 'o' 'n' of
       0# -> do
         val <- asciiTextField InvalidUtmAction
-        pure (UtmAction val)
-      _ -> P.fail UnknownField9
+        let !atom = UtmAction val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_direction -> case zequal9 arr off 'd' 'i' 'r' 'e' 'c' 't' 'i' 'o' 'n' of
       0# -> do
         val <- asciiTextField InvalidDirection
-        pure (Direction val)
-      _ -> P.fail UnknownField9
+        let !atom = Direction val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srcfamily -> case zequal9 arr off 's' 'r' 'c' 'f' 'a' 'm' 'i' 'l' 'y' of
       0# -> do
         val <- asciiTextField InvalidSourceFamily
-        pure (SourceFamily val)
-      _ -> P.fail UnknownField9
+        let !atom = SourceFamily val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_sentdelta -> case zequal9 arr off 's' 'e' 'n' 't' 'd' 'e' 'l' 't' 'a' of
       0# -> do
         val <- Latin.decWord64 InvalidSentDelta
-        pure (SentDelta val)
-      _ -> P.fail UnknownField9
+        let !atom = SentDelta val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_rcvddelta -> case zequal9 arr off 'r' 'c' 'v' 'd' 'd' 'e' 'l' 't' 'a' of
       0# -> do
         val <- Latin.decWord64 InvalidReceivedDelta
-        pure (ReceivedDelta val)
-      _ -> P.fail UnknownField9
-    _ -> P.fail UnknownField9
+        let !atom = ReceivedDelta val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   10 -> case G.hashString10 arr off of
     G.H_session_id -> case zequal10 arr off 's' 'e' 's' 's' 'i' 'o' 'n' '_' 'i' 'd' of
       0# -> do
@@ -953,185 +1035,214 @@ afterEquals !b = case fromIntegral @Int @Word len of
         -- determines the encoding of the number
         -- TODO: Fix this.
         _ <- asciiTextField InvalidSessionId
-        pure (SessionId 0)
-      _ -> P.fail UnknownField10
+        let !atom = SessionId 0
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_vwlquality -> case zequal10 arr off 'v' 'w' 'l' 'q' 'u' 'a' 'l' 'i' 't' 'y' of
       0# -> do
         val <- asciiTextField InvalidVirtualWanLinkQuality
-        pure (VirtualWanLinkQuality val)
-      _ -> P.fail UnknownField10
+        let !atom = VirtualWanLinkQuality val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_tunneltype -> case zequal10 arr off 't' 'u' 'n' 'n' 'e' 'l' 't' 'y' 'p' 'e' of
       0# -> do
         val <- asciiTextField InvalidTunnelType
-        pure (TunnelType val)
-      _ -> P.fail UnknownField10
+        let !atom = TunnelType val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_authserver -> case zequal10 arr off 'a' 'u' 't' 'h' 's' 'e' 'r' 'v' 'e' 'r' of
       0# -> do
         val <- asciiTextField InvalidAuthServer
-        pure (AuthServer val)
-      _ -> P.fail UnknownField10
+        let !atom = AuthServer val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstdevtype -> case zequal10 arr off 'd' 's' 't' 'd' 'e' 'v' 't' 'y' 'p' 'e' of
       0# -> do
         val <- asciiTextField InvalidDestinationDeviceType
-        pure (DestinationDeviceType val)
-      _ -> P.fail UnknownField10
+        let !atom = DestinationDeviceType val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_unauthuser -> case zequal10 arr off 'u' 'n' 'a' 'u' 't' 'h' 'u' 's' 'e' 'r' of
       0# -> do
         val <- asciiTextField InvalidUnauthenticatedUser
-        pure (UnauthenticatedUser val)
-      _ -> P.fail UnknownField10
+        let !atom = UnauthenticatedUser val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srccountry -> case zequal10 arr off 's' 'r' 'c' 'c' 'o' 'u' 'n' 't' 'r' 'y' of
       0# -> do
         val <- asciiTextField InvalidSourceCountry
-        pure (SourceCountry val)
-      _ -> P.fail UnknownField10
+        let !atom = SourceCountry val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstcountry -> case zequal10 arr off 'd' 's' 't' 'c' 'o' 'u' 'n' 't' 'r' 'y' of
       0# -> do
         val <- asciiTextField InvalidDestinationCountry
-        pure (DestinationCountry val)
-      _ -> P.fail UnknownField10
+        let !atom = DestinationCountry val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_policytype -> case zequal10 arr off 'p' 'o' 'l' 'i' 'c' 'y' 't' 'y' 'p' 'e' of
       0# -> do
         val <- asciiTextField InvalidPolicyType
-        pure (PolicyType val)
-      _ -> P.fail UnknownField10
+        let !atom = PolicyType val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstinetsvc -> case zequal10 arr off 'd' 's' 't' 'i' 'n' 'e' 't' 's' 'v' 'c' of
       0# -> do
         val <- asciiTextField InvalidDestinationInternetService
-        pure (DestinationInternetService val)
-      _ -> P.fail UnknownField10
+        let !atom = DestinationInternetService val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_scertcname -> case zequal10 arr off 's' 'c' 'e' 'r' 't' 'c' 'n' 'a' 'm' 'e' of
       0# -> do
         val <- asciiTextField InvalidSslCertificateCommonName
-        pure (SslCertificateCommonName val)
-      _ -> P.fail UnknownField10
-    _ -> P.fail UnknownField10
+        let !atom = SslCertificateCommonName val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   11 -> case G.hashString11 arr off of
     G.H_devcategory -> case zequal11 arr off 'd' 'e' 'v' 'c' 'a' 't' 'e' 'g' 'o' 'r' 'y' of
       0# -> do
         val <- asciiTextField InvalidDeviceCategory
-        pure (DeviceCategory val)
-      _ -> P.fail UnknownField11
+        let !atom = DeviceCategory val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_scertissuer -> case zequal11 arr off 's' 'c' 'e' 'r' 't' 'i' 's' 's' 'u' 'e' 'r' of
       0# -> do
         val <- asciiTextField InvalidSslCertificateIssuer
-        pure (SslCertificateIssuer val)
-      _ -> P.fail UnknownField11
+        let !atom = SslCertificateIssuer val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_referralurl -> case zequal11 arr off 'r' 'e' 'f' 'e' 'r' 'r' 'a' 'l' 'u' 'r' 'l' of
       0# -> do
         val <- asciiTextField InvalidReferralUrl
-        pure (ReferralUrl val)
-      _ -> P.fail UnknownField11
+        let !atom = ReferralUrl val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_profiletype -> case zequal11 arr off 'p' 'r' 'o' 'f' 'i' 'l' 'e' 't' 'y' 'p' 'e' of
       0# -> do
         val <- asciiTextField InvalidProfileType
-        pure (ProfileType val)
-      _ -> P.fail UnknownField11
+        let !atom = ProfileType val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstintfrole -> case zequal11 arr off 'd' 's' 't' 'i' 'n' 't' 'f' 'r' 'o' 'l' 'e' of
       0# -> do
         val <- asciiTextField InvalidDestinationInterfaceRole
-        pure (DestinationInterfaceRole val)
-      _ -> P.fail UnknownField11
+        let !atom = DestinationInterfaceRole val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srcintfrole -> case zequal11 arr off 's' 'r' 'c' 'i' 'n' 't' 'f' 'r' 'o' 'l' 'e' of
       0# -> do
         val <- asciiTextField InvalidSourceInterfaceRole
-        pure (SourceInterfaceRole val)
-      _ -> P.fail UnknownField11
+        let !atom = SourceInterfaceRole val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srchwvendor -> case zequal11 arr off 's' 'r' 'c' 'h' 'w' 'v' 'e' 'n' 'd' 'o' 'r' of
       0# -> do
         val <- asciiTextField InvalidSourceHardwareVendor
-        pure (SourceHardwareVendor val)
-      _ -> P.fail UnknownField11
-    _ -> P.fail UnknownField11
+        let !atom = SourceHardwareVendor val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   12 -> case G.hashString12 arr off of
     G.H_dstosversion -> case zequal12 arr off 'd' 's' 't' 'o' 's' 'v' 'e' 'r' 's' 'i' 'o' 'n' of
       0# -> do
         val <- asciiTextField InvalidDestinationOsVerson
-        pure (DestinationOsVersion val)
-      _ -> P.fail UnknownField12
+        let !atom = DestinationOsVersion val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_centralnatid -> case zequal12 arr off 'c' 'e' 'n' 't' 'r' 'a' 'l' 'n' 'a' 't' 'i' 'd' of
       0# -> do
         val <- Latin.decWord64 InvalidCentralNatId
-        pure (CentralNatId val)
-      _ -> P.fail UnknownField12
+        let !atom = CentralNatId val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_urlfilteridx -> case zequal12 arr off 'u' 'r' 'l' 'f' 'i' 'l' 't' 'e' 'r' 'i' 'd' 'x' of
       0# -> do
         val <- Latin.decWord64 InvalidUrlFilterIndex
-        pure (UrlFilterIndex val)
-      _ -> P.fail UnknownField12
+        let !atom = UrlFilterIndex val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srcswversion -> case zequal12 arr off 's' 'r' 'c' 's' 'w' 'v' 'e' 'r' 's' 'i' 'o' 'n' of
       0# -> do
         val <- asciiTextField InvalidSourceSoftwareVersion
-        pure (SourceSoftwareVersion val)
-      _ -> P.fail UnknownField12
+        let !atom = SourceSoftwareVersion val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_mastersrcmac -> case zequal12 arr off 'm' 'a' 's' 't' 'e' 'r' 's' 'r' 'c' 'm' 'a' 'c' of
       0# -> do
         quoted <- Latin.trySatisfy (=='"')
         r <- Mac.parserUtf8Bytes InvalidMasterSourceMac
         when quoted (Latin.char InvalidMasterSourceMac '"')
-        pure (MasterSourceMac r)
-      _ -> P.fail UnknownField12
+        let !atom = MasterSourceMac r
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_masterdstmac -> case zequal12 arr off 'm' 'a' 's' 't' 'e' 'r' 'd' 's' 't' 'm' 'a' 'c' of
       0# -> do
         quoted <- Latin.trySatisfy (=='"')
         r <- Mac.parserUtf8Bytes InvalidMasterDestinationMac
         when quoted (Latin.char InvalidMasterDestinationMac '"')
-        pure (MasterDestinationMac r)
-      _ -> P.fail UnknownField12
-    _ -> P.fail UnknownField12
+        let !atom = MasterDestinationMac r
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
   13 -> case zequal13 arr off 'u' 'r' 'l' 'f' 'i' 'l' 't' 'e' 'r' 'l' 'i' 's' 't' of
     0# -> do
       val <- asciiTextField InvalidUrlFilterList
-      pure (UrlFilterList val)
-    _ -> P.fail UnknownField13
+      let !atom = UrlFilterList val
+      P.effect (Builder.push atom b0)
+    _ -> discardUnknownField b0
   14 -> case zequal14 arr off 'd' 's' 't' 'd' 'e' 'v' 'c' 'a' 't' 'e' 'g' 'o' 'r' 'y' of
     0# -> do
       val <- asciiTextField InvalidDestinationDeviceCategory
-      pure (DestinationDeviceCategory val)
-    _ -> P.fail UnknownField15
+      let !atom = DestinationDeviceCategory val
+      P.effect (Builder.push atom b0)
+    _ -> discardUnknownField b0
   16 -> case G.hashString16 arr off of
     G.H_incidentserialno -> case zequal16 arr off 'i' 'n' 'c' 'i' 'd' 'e' 'n' 't' 's' 'e' 'r' 'i' 'a' 'l' 'n' 'o' of
       0# -> do
         val <- Latin.decWord64 InvalidIncidentSerialNumber
-        pure (IncidentSerialNumber val)
-      _ -> P.fail UnknownField16
+        let !atom = IncidentSerialNumber val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_unauthusersource -> case zequal16 arr off 'u' 'n' 'a' 'u' 't' 'h' 'u' 's' 'e' 'r' 's' 'o' 'u' 'r' 'c' 'e' of
       0# -> do
         val <- asciiTextField InvalidUnauthenticatedUserSource
-        pure (UnauthenticatedUserSource val)
-      _ -> P.fail UnknownField16
-    _ -> P.fail UnknownField16
-  _ -> P.fail UnknownField
+        let !atom = UnauthenticatedUserSource val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
+  _ -> discardUnknownField b0
   where
   !(Bytes arr off len) = b
 
-dnatFinish :: Parser DecodeException s Field
-dnatFinish = do
+dnatFinish :: Builder s Field -> Parser DecodeException s (Builder s Field)
+dnatFinish !b0 = do
   Latin.char7 InvalidTranslationDisposition 't' 'r' 'a' 'n' 'i' 'p' '='
   !ip <- IPv4.parserUtf8Bytes InvalidTranslationIp
   Latin.char10 InvalidTranslationDisposition ' ' 't' 'r' 'a' 'n' 'p' 'o' 'r' 't' '='
   !port <- Latin.decWord16 InvalidTranslationPort
-  pure (TranslatedDestination ip port)
+  let !atom = TranslatedDestination ip port
+  P.effect (Builder.push atom b0)
 
-snatFinish :: Parser DecodeException s Field
-snatFinish = do
+snatFinish :: Builder s Field -> Parser DecodeException s (Builder s Field)
+snatFinish !b0 = do
   Latin.char8 InvalidTranslationDisposition 't' 'r' 'a' 'n' 's' 'i' 'p' '='
   !ip <- IPv4.parserUtf8Bytes InvalidTranslationIp
   Latin.char11 InvalidTranslationDisposition ' ' 't' 'r' 'a' 'n' 's' 'p' 'o' 'r' 't' '='
   !port <- Latin.decWord16 InvalidTranslationPort
-  pure (TranslatedSource ip port)
+  let !atom = TranslatedSource ip port
+  P.effect (Builder.push atom b0)
 
--- TODO: This just throws away the source nat. This can be fixed, but it
--- requires a more general restructuring of this library.
-snatAndDnatFinish :: Parser DecodeException s Field
-snatAndDnatFinish = do
+snatAndDnatFinish :: Builder s Field -> Parser DecodeException s (Builder s Field)
+snatAndDnatFinish b0 = do
   Latin.char7 InvalidTranslationDisposition 't' 'r' 'a' 'n' 'i' 'p' '='
   !ip <- IPv4.parserUtf8Bytes InvalidTranslationIp
   Latin.char10 InvalidTranslationDisposition ' ' 't' 'r' 'a' 'n' 'p' 'o' 'r' 't' '='
   !port <- Latin.decWord16 InvalidTranslationPort
   Latin.char InvalidTranslationDisposition ' '
-  _ <- snatFinish
-  pure (TranslatedDestination ip port)
+  b1 <- snatFinish b0
+  let !atom = TranslatedDestination ip port
+  P.effect (Builder.push atom b1)
 
 -- Field is optionally surrounded by quotes. This does not
 -- consume a trailing space.

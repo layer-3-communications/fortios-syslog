@@ -61,6 +61,7 @@ allKeywords =
   , "devtype"
   , "dhcp_msg"
   , "direction"
+  , "dst_host"
   , "dstcountry"
   , "dstdevcategory"
   , "dstdevtype"
@@ -96,6 +97,7 @@ allKeywords =
   , "mastersrcmac"
   , "method"
   , "msg"
+  , "nextstat"
   , "osname"
   , "osversion"
   , "outintf"
@@ -105,6 +107,10 @@ allKeywords =
   , "profile"
   , "profiletype"
   , "proto"
+  , "qclass"
+  , "qname"
+  , "qtype"
+  , "qtypeval"
   , "rcvdbyte"
   , "rcvddelta"
   , "rcvdpkt"
@@ -139,6 +145,9 @@ allKeywords =
   , "sslaction"
   , "status"
   , "trandisp"
+  , "tunnelid"
+  , "tunnelip"
+  , "tunneltype"
   , "tz"
   , "unauthuser"
   , "unauthusersource"
@@ -158,6 +167,7 @@ allKeywords =
   , "wanout"
   , "xauthgroup"
   , "xauthuser"
+  , "xid"
   ]
 
 data Algorithm = AlgoTwo !Int !Int | AlgoFour !Int !Int !Int !Int
@@ -215,8 +225,10 @@ attemptTableSize keywords !len = if length keywords > 0
       Nothing -> attemptMultiplierSizeFour keywords sz >>= \case
         Just res -> pure (Map.singleton len res)
         Nothing -> attemptMultiplierSizeTwo keywords (sz * 2) >>= \case
-          Nothing -> fail "Could not come up with hash function"
           Just res -> pure (Map.singleton len res)
+          Nothing -> attemptMultiplierSizeTwo keywords (sz * 4) >>= \case
+            Nothing -> fail "Could not come up with hash function"
+            Just res -> pure (Map.singleton len res)
   else pure Map.empty
   where
   sz = nextPowerOfTwo (length keywords)

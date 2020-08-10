@@ -86,6 +86,7 @@ data DecodeException
   | InvalidDestinationCountry
   | InvalidDestinationDeviceCategory
   | InvalidDestinationDeviceType
+  | InvalidDestinationHost
   | InvalidDestinationInterface
   | InvalidDestinationInterfaceRole
   | InvalidDestinationInternetService
@@ -115,6 +116,7 @@ data DecodeException
   | InvalidLanOut
   | InvalidLease
   | InvalidLevel
+  | InvalidLocalPort
   | InvalidLogDescription
   | InvalidLogId
   | InvalidMac
@@ -122,6 +124,7 @@ data DecodeException
   | InvalidMasterSourceMac
   | InvalidMessage
   | InvalidMethod
+  | InvalidNextStatistics
   | InvalidOsName
   | InvalidOsVersion
   | InvalidPolicyId
@@ -130,11 +133,17 @@ data DecodeException
   | InvalidProfile
   | InvalidProfileType
   | InvalidProtocol
+  | InvalidQueryClass
+  | InvalidQueryName
+  | InvalidQueryType
+  | InvalidQueryTypeValue
   | InvalidReceivedBytes
   | InvalidReceivedDelta
   | InvalidReceivedPackets
   | InvalidReferralUrl
   | InvalidReference
+  | InvalidRemoteIp
+  | InvalidRemotePort
   | InvalidRequestType
   | InvalidSentBytes
   | InvalidSentDelta
@@ -161,9 +170,13 @@ data DecodeException
   | InvalidSyslogPriority
   | InvalidTime
   | InvalidTimeZone
+  | InvalidTransactionId
   | InvalidTranslationDisposition
   | InvalidTranslationIp
   | InvalidTranslationPort
+  | InvalidTunnelId
+  | InvalidTunnelIp
+  | InvalidTunnelType
   | InvalidType
   | InvalidUnauthenticatedUser
   | InvalidUnauthenticatedUserSource
@@ -227,6 +240,7 @@ data Field
   | DestinationCountry {-# UNPACK #-} !Bytes
   | DestinationDeviceCategory {-# UNPACK #-} !Bytes
   | DestinationDeviceType {-# UNPACK #-} !Bytes
+  | DestinationHost {-# UNPACK #-} !Bytes
   | DestinationInterface {-# UNPACK #-} !Bytes
   | DestinationInterfaceRole {-# UNPACK #-} !Bytes
   | DestinationInternetService {-# UNPACK #-} !Bytes
@@ -254,12 +268,14 @@ data Field
   | LanOut {-# UNPACK #-} !Word64
   | Lease {-# UNPACK #-} !Word64
   | Level {-# UNPACK #-} !Bytes
+  | LocalPort {-# UNPACK #-} !Word16
   | LogDescription {-# UNPACK #-} !Bytes
   | Mac {-# UNPACK #-} !Net.Types.Mac
   | MasterDestinationMac {-# UNPACK #-} !Net.Types.Mac
   | MasterSourceMac {-# UNPACK #-} !Net.Types.Mac
   | Message {-# UNPACK #-} !Bytes
   | Method {-# UNPACK #-} !Bytes
+  | NextStatistics {-# UNPACK #-} !Word64
   | OsName {-# UNPACK #-} !Bytes
   | OsVersion {-# UNPACK #-} !Bytes
   | PolicyId {-# UNPACK #-} !Word64
@@ -268,6 +284,10 @@ data Field
   | Profile {-# UNPACK #-} !Bytes
   | ProfileType {-# UNPACK #-} !Bytes
   | Protocol {-# UNPACK #-} !Word8
+  | QueryClass {-# UNPACK #-} !Bytes
+  | QueryName {-# UNPACK #-} !Bytes
+  | QueryType {-# UNPACK #-} !Bytes
+  | QueryTypeValue {-# UNPACK #-} !Word64
     -- ^ IANA Internet Protocol Number.
   | ReceivedBytes {-# UNPACK #-} !Word64
     -- ^ Number of bytes received.
@@ -276,6 +296,8 @@ data Field
     -- ^ Number of packets received.
   | Reference {-# UNPACK #-} !Bytes
   | ReferralUrl {-# UNPACK #-} !Bytes
+  | RemoteIp {-# UNPACK #-} !IP
+  | RemotePort {-# UNPACK #-} !Word16
   | RequestType {-# UNPACK #-} !Bytes
   | SentBytes {-# UNPACK #-} !Word64
     -- ^ Number of bytes sent.
@@ -302,9 +324,13 @@ data Field
   | SslCertificateCommonName {-# UNPACK #-} !Bytes
   | SslCertificateIssuer {-# UNPACK #-} !Bytes
   | TimeZone {-# UNPACK #-} !Int -- ^ Offset from UTC in minutes
+  | TransactionId {-# UNPACK #-} !Word64 -- ^ Field is named @xid@.
   | TranslatedNone -- ^ When @trandisp@ is @noop@
   | TranslatedSource {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
   | TranslatedDestination {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
+  | TunnelId {-# UNPACK #-} !Word64
+  | TunnelIp {-# UNPACK #-} !IP
+  | TunnelType {-# UNPACK #-} !Bytes
   | UnauthenticatedUser {-# UNPACK #-} !Bytes
   | UnauthenticatedUserSource {-# UNPACK #-} !Bytes
   | UtmAction {-# UNPACK #-} !Bytes
@@ -441,6 +467,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidReference
         pure (Reference val)
       _ -> P.fail UnknownField3
+    G.H_xid -> case zequal3 arr off 'x' 'i' 'd' of
+      0# -> do
+        val <- Latin.decWord64 InvalidTransactionId
+        pure (TransactionId val)
+      _ -> P.fail UnknownField3
     G.H_cat -> case zequal3 arr off 'c' 'a' 't' of
       0# -> do
         val <- Latin.decWord64 InvalidCategory
@@ -460,6 +491,21 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField4
     _ -> P.fail UnknownField4
   5 -> case G.hashString5 arr off of
+    G.H_remip -> case zequal5 arr off 'r' 'e' 'm' 'i' 'p' of
+      0# -> do
+        val <- IP.parserUtf8Bytes InvalidRemoteIp
+        pure (RemoteIp val)
+      _ -> P.fail UnknownField5
+    G.H_qname -> case zequal5 arr off 'q' 'n' 'a' 'm' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidQueryName
+        pure (QueryName val)
+      _ -> P.fail UnknownField5
+    G.H_qtype -> case zequal5 arr off 'q' 't' 'y' 'p' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidQueryType
+        pure (QueryType val)
+      _ -> P.fail UnknownField5
     G.H_group -> case zequal5 arr off 'g' 'r' 'o' 'u' 'p' of
       0# -> do
         val <- asciiTextField InvalidGroup
@@ -522,6 +568,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField5
     _ -> P.fail UnknownField5
   6 -> case G.hashString6 arr off of
+    G.H_qclass -> case zequal6 arr off 'q' 'c' 'l' 'a' 's' 's' of
+      0# -> do
+        val <- asciiTextField InvalidQueryClass
+        pure (QueryClass val)
+      _ -> P.fail UnknownField6
     G.H_dstmac -> case zequal6 arr off 'd' 's' 't' 'm' 'a' 'c' of
       0# -> do
         quoted <- Latin.trySatisfy (=='"')
@@ -653,6 +704,16 @@ afterEquals !b = case fromIntegral @Int @Word len of
         val <- asciiTextField InvalidDestinationInterface
         pure (DestinationInterface val)
       _ -> P.fail UnknownField7
+    G.H_locport -> case zequal7 arr off 'l' 'o' 'c' 'p' 'o' 'r' 't' of
+      0# -> do
+        val <- Latin.decWord16 InvalidLocalPort
+        pure (LocalPort val)
+      _ -> P.fail UnknownField7
+    G.H_remport -> case zequal7 arr off 'r' 'e' 'm' 'p' 'o' 'r' 't' of
+      0# -> do
+        val <- Latin.decWord16 InvalidRemotePort
+        pure (RemotePort val)
+      _ -> P.fail UnknownField7
     G.H_srcport -> case zequal7 arr off 's' 'r' 'c' 'p' 'o' 'r' 't' of
       0# -> do
         val <- Latin.decWord16 InvalidSourcePort
@@ -685,10 +746,35 @@ afterEquals !b = case fromIntegral @Int @Word len of
       _ -> P.fail UnknownField7
     _ -> P.fail UnknownField7
   8 -> case G.hashString8 arr off of
+    G.H_qtypeval -> case zequal8 arr off 'q' 't' 'y' 'p' 'e' 'v' 'a' 'l' of
+      0# -> do
+        val <- Latin.decWord64 InvalidQueryTypeValue
+        pure (QueryTypeValue val)
+      _ -> P.fail UnknownField8
+    G.H_tunnelip -> case zequal8 arr off 't' 'u' 'n' 'n' 'e' 'l' 'i' 'p' of
+      0# -> do
+        val <- IP.parserUtf8Bytes InvalidTunnelIp
+        pure (TunnelIp val)
+      _ -> P.fail UnknownField8
+    G.H_tunnelid -> case zequal8 arr off 't' 'u' 'n' 'n' 'e' 'l' 'i' 'd' of
+      0# -> do
+        val <- Latin.decWord64 InvalidTunnelId
+        pure (TunnelId val)
+      _ -> P.fail UnknownField8
+    G.H_dst_host -> case zequal8 arr off 'd' 's' 't' '_' 'h' 'o' 's' 't' of
+      0# -> do
+        val <- asciiTextField InvalidDestinationHost
+        pure (DestinationHost val)
+      _ -> P.fail UnknownField8
     G.H_dhcp_msg -> case zequal8 arr off 'd' 'h' 'c' 'p' '_' 'm' 's' 'g' of
       0# -> do
         val <- asciiTextField InvalidDhcpMessage
         pure (DhcpMessage val)
+      _ -> P.fail UnknownField8
+    G.H_nextstat -> case zequal8 arr off 'n' 'e' 'x' 't' 's' 't' 'a' 't' of
+      0# -> do
+        val <- Latin.decWord64 InvalidNextStatistics
+        pure (NextStatistics val)
       _ -> P.fail UnknownField8
     G.H_attackid -> case zequal8 arr off 'a' 't' 't' 'a' 'c' 'k' 'i' 'd' of
       0# -> do
@@ -873,6 +959,11 @@ afterEquals !b = case fromIntegral @Int @Word len of
       0# -> do
         val <- asciiTextField InvalidVirtualWanLinkQuality
         pure (VirtualWanLinkQuality val)
+      _ -> P.fail UnknownField10
+    G.H_tunneltype -> case zequal10 arr off 't' 'u' 'n' 'n' 'e' 'l' 't' 'y' 'p' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidTunnelType
+        pure (TunnelType val)
       _ -> P.fail UnknownField10
     G.H_authserver -> case zequal10 arr off 'a' 'u' 't' 'h' 's' 'e' 'r' 'v' 'e' 'r' of
       0# -> do

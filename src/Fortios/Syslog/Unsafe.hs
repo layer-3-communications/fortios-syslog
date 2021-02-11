@@ -26,7 +26,7 @@ import Data.Chunks (Chunks)
 import Data.Primitive (ByteArray(..))
 import Data.WideWord (Word128)
 import Data.Word (Word8,Word16,Word64)
-import GHC.Exts (Int#,(+#))
+import GHC.Exts (Int#,(+#),Ptr(Ptr))
 import GHC.Exts (Int(I#),Char(C#),Char#,indexCharArray#,ord#,xorI#,orI#)
 import Net.Types (IPv4,IP)
 
@@ -55,11 +55,15 @@ data DecodeException
   = ExpectedDate
   | ExpectedDeviceId
   | ExpectedDeviceName
+  | ExpectedEventTime
+  | ExpectedFieldsAfterDeviceId
   | ExpectedLogId
   | ExpectedSpace
+  | ExpectedSpaceAfterDeviceId
   | ExpectedSubtype
   | ExpectedTime
   | ExpectedType
+  | ExpectedTz
   | IncompleteKey
   | InvalidAction
   | InvalidAlert
@@ -363,7 +367,19 @@ fullParser = do
   deviceName <- asciiTextField InvalidDeviceName
   Latin.char7 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i' 'd' '='
   deviceId <- asciiTextField InvalidDeviceId
-  Latin.char7 ExpectedLogId ' ' 'l' 'o' 'g' 'i' 'd' '='
+  Latin.char ExpectedSpaceAfterDeviceId ' '
+  Latin.any ExpectedFieldsAfterDeviceId >>= \case
+    -- This is a hack, and it causes us to lose the eventtime and tz, but
+    -- these are somewhat low-value fields anyway. 
+    'l' -> pure ()
+    'e' -> do
+      P.cstring ExpectedEventTime (Ptr "venttime="#)
+      Latin.skipDigits1 ExpectedEventTime
+      P.cstring ExpectedTz (Ptr " tz="#)
+      _ <- P.takeTrailedBy ExpectedTz (c2w ' ')
+      Latin.char ExpectedLogId 'l'
+    _ -> P.fail ExpectedFieldsAfterDeviceId
+  Latin.char5 ExpectedLogId 'o' 'g' 'i' 'd' '='
   logId <- asciiTextField InvalidLogId
   Latin.char6 ExpectedType ' ' 't' 'y' 'p' 'e' '='
   type_ <- asciiTextField InvalidType

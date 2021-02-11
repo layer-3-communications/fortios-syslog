@@ -8,6 +8,7 @@ module Sample
   , traffic_forward_C
   , traffic_forward_D
   , traffic_forward_E
+  , traffic_forward_F
   , utm_webfilter_A
   , utm_webfilter_B
   , utm_webfilter_C
@@ -140,6 +141,25 @@ traffic_forward_E = pack $ concat
   , "transport=44048 service=\"TCP-8800\" duration=10 sentbyte=40 "
   , "rcvdbyte=68 sentpkt=1 rcvdpkt=1 appcat=\"unscanned\" crscore=5 "
   , "craction=252034 crlevel=low"
+  ]
+
+traffic_forward_F :: Bytes
+traffic_forward_F = pack $ concat
+  [ "<189>date=2021-02-11 time=13:15:00 devname=\"NYC-FW\" "
+  , "devid=\"FG200FT817418227\" "
+  , "eventtime=1613067301159688808 tz=\"-0500\" logid=\"0000000013\" "
+  , "type=\"traffic\" subtype=\"forward\" level=\"notice\" vd=\"root\" "
+  , "srcip=192.0.2.201 srcport=18570 "
+  , "srcintf=\"Untrusted\" srcintfrole=\"thesrcintf\" dstip=192.0.2.205 "
+  , "dstport=4791 "
+  , "dstintf=\"thedstintf\" dstintfrole=\"lan\" srccountry=\"United States\" "
+  , "dstcountry=\"United States\" sessionid=2143294 proto=6 action=\"close\" "
+  , "policyid=10357 policytype=\"policy\" "
+  , "poluuid=\"8d8548fd-400a-40f0-49bf-52906fe8aef4\" "
+  , "policyname=\"My Policy\" service=\"the-service-name\" trandisp=\"dnat\" "
+  , "tranip=172.16.4.15 tranport=5009 duration=2 sentbyte=1695 rcvdbyte=1269 "
+  , "sentpkt=12 "
+  , "rcvdpkt=12 appcat=\"unscanned\""
   ]
 
 utm_webfilter_A :: Bytes

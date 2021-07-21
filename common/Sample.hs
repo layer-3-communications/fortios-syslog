@@ -9,6 +9,7 @@ module Sample
   , traffic_forward_D
   , traffic_forward_E
   , traffic_forward_F
+  , traffic_forward_G
   , utm_webfilter_A
   , utm_webfilter_B
   , utm_webfilter_C
@@ -210,4 +211,26 @@ event_system_A = pack $ concat
   , "logdesc=\"DHCP Ack log\" interface=\"vlan-11-trust\" dhcp_msg=\"Ack\" "
   , "mac=D1:1F:B1:41:FB:1F ip=192.0.2.97 lease=3600 hostname=\"SomeHost\" "
   , "msg=\"DHCP server sends a DHCPACK\""
+  ]
+
+traffic_forward_G :: Bytes
+traffic_forward_G = pack $ concat
+  [ "<189>logver=64 timestamp=1626459703 tz=\"UTC-5\" devname=\"fgt_ny_0\" "
+  , "devid=\"FG5H1B5718009842\" vd=\"root\" date=2021-07-16 time=13:21:43 "
+  , "eventtime=1626459704210037706 tz=\"-0500\" logid=\"0000000020\" "
+  , "type=\"traffic\" subtype=\"forward\" level=\"notice\" srcip=192.0.2.11 "
+  , "srcport=57925 srcintf=\"The Src Intf\" srcintfrole=\"lan\" "
+  , "dstip=192.0.2.207 dstport=56773 dstintf=\"My VLAN\" "
+  , "dstintfrole=\"lan\" srccountry=\"Reserved\" dstcountry=\"Reserved\" "
+  , "sessionid=2216451506 proto=6 action=\"accept\" policyid=240 "
+  , "policytype=\"policy\" poluuid=\"debfa4b4-0f92-54e4-39a7-060b8e7dc6bf\" "
+  , "policyname=\"My SQL Policy\" service=\"The Service\" "
+  , "trandisp=\"noop\" appid=16197 app=\"MSSQL\" appcat=\"Business\" "
+  , "apprisk=\"low\" applist=\"Gaming - Restrictions\" duration=719 "
+  , "sentbyte=4572 rcvdbyte=4559 sentpkt=56 rcvdpkt=47 sentdelta=940 "
+  , "rcvddelta=1058 mastersrcmac=\"f3:9e:78:1a:af:fc\" "
+  , "srcmac=\"f1:85:44:32:20:fc\" srcserver=0 dsthwvendor=\"VMware\" "
+  , "dstosname=\"Windows\" dstswversion=\"8\" dstunauthuser=\"administrator\" "
+  , "dstunauthusersource=\"kerberos\" masterdstmac=\"0f:51:03:84:39:4b\" "
+  , "dstmac=\"09:31:40:af:ba:35\" dstserver=0"
   ]

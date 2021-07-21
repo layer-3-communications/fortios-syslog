@@ -15,7 +15,7 @@ module Fortios.Syslog.Unsafe
   , decode
   ) where
 
-import Chronos (Date(Date),TimeOfDay(TimeOfDay))
+import Chronos (Date(Date),TimeOfDay(TimeOfDay),Datetime(..))
 import Chronos (Month(Month),DayOfMonth(DayOfMonth),Year(Year))
 import Control.Monad (when)
 import Data.Builder.ST (Builder)
@@ -58,12 +58,15 @@ data DecodeException
   | ExpectedEventTime
   | ExpectedFieldsAfterDeviceId
   | ExpectedLogId
+  | ExpectedLogVer
   | ExpectedSpace
   | ExpectedSpaceAfterDeviceId
   | ExpectedSubtype
   | ExpectedTime
+  | ExpectedTimestamp
   | ExpectedType
   | ExpectedTz
+  | ExpectedVd
   | IncompleteKey
   | InvalidAction
   | InvalidAlert
@@ -350,6 +353,73 @@ fullParser = do
     False -> pure ()
   -- Skip any leading space or any space after the syslog priority.
   Latin.skipChar ' '
+  Latin.trySatisfy (=='l') >>= \case
+    True -> do
+      Latin.char6 ExpectedLogVer 'o' 'g' 'v' 'e' 'r' '='
+      Latin.skipDigits1 ExpectedLogVer
+      P.cstring ExpectedTimestamp (Ptr " timestamp="#)
+      Latin.skipDigits1 ExpectedLogVer
+      P.cstring ExpectedTz (Ptr " tz=\""#)
+      _ <- P.takeTrailedBy ExpectedTz 0x22
+      Latin.char9 ExpectedDeviceName ' ' 'd' 'e' 'v' 'n' 'a' 'm' 'e' '='
+      deviceName <- asciiTextField InvalidDeviceName
+      Latin.char7 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i' 'd' '='
+      deviceId <- asciiTextField InvalidDeviceId
+      Latin.char5 ExpectedVd ' ' 'v' 'd' '=' '"'
+      _ <- P.takeTrailedBy ExpectedVd 0x22
+      Latin.char ExpectedVd ' '
+      Datetime date time <- takeDateAndTime
+      P.cstring ExpectedEventTime (Ptr " eventtime="#)
+      Latin.skipDigits1 ExpectedEventTime
+      P.cstring ExpectedTz (Ptr " tz="#)
+      _ <- P.takeTrailedBy ExpectedTz (c2w ' ')
+      Latin.char6 ExpectedLogId 'l' 'o' 'g' 'i' 'd' '='
+      logId <- asciiTextField InvalidLogId
+      Latin.char6 ExpectedType ' ' 't' 'y' 'p' 'e' '='
+      type_ <- asciiTextField InvalidType
+      Latin.char9 ExpectedSubtype ' ' 's' 'u' 'b' 't' 'y' 'p' 'e' '='
+      subtype <- asciiTextField InvalidSubtype
+      fields <- fieldsParser =<< P.effect Builder.new
+      pure Log
+        { deviceName, deviceId, logId, type_, subtype
+        , fields
+        , date = date
+        , time = time
+        }
+    False -> do
+      Datetime date time <- takeDateAndTime
+      Latin.char9 ExpectedDeviceName ' ' 'd' 'e' 'v' 'n' 'a' 'm' 'e' '='
+      deviceName <- asciiTextField InvalidDeviceName
+      Latin.char7 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i' 'd' '='
+      deviceId <- asciiTextField InvalidDeviceId
+      Latin.char ExpectedSpaceAfterDeviceId ' '
+      Latin.any ExpectedFieldsAfterDeviceId >>= \case
+        -- This is a hack, and it causes us to lose the eventtime and tz, but
+        -- these are somewhat low-value fields anyway. 
+        'l' -> pure ()
+        'e' -> do
+          P.cstring ExpectedEventTime (Ptr "venttime="#)
+          Latin.skipDigits1 ExpectedEventTime
+          P.cstring ExpectedTz (Ptr " tz="#)
+          _ <- P.takeTrailedBy ExpectedTz (c2w ' ')
+          Latin.char ExpectedLogId 'l'
+        _ -> P.fail ExpectedFieldsAfterDeviceId
+      Latin.char5 ExpectedLogId 'o' 'g' 'i' 'd' '='
+      logId <- asciiTextField InvalidLogId
+      Latin.char6 ExpectedType ' ' 't' 'y' 'p' 'e' '='
+      type_ <- asciiTextField InvalidType
+      Latin.char9 ExpectedSubtype ' ' 's' 'u' 'b' 't' 'y' 'p' 'e' '='
+      subtype <- asciiTextField InvalidSubtype
+      fields <- fieldsParser =<< P.effect Builder.new
+      pure Log
+        { deviceName, deviceId, logId, type_, subtype
+        , fields
+        , date = date
+        , time = time
+        }
+
+takeDateAndTime :: Parser DecodeException s Datetime
+takeDateAndTime = do
   Latin.char5 ExpectedDate 'd' 'a' 't' 'e' '='
   year <- Latin.decWord InvalidDate
   Latin.char InvalidDate '-'
@@ -363,42 +433,17 @@ fullParser = do
   minute <- Latin.decWord InvalidTime
   Latin.char InvalidTime ':'
   sec <- Latin.decWord InvalidTime
-  Latin.char9 ExpectedDeviceName ' ' 'd' 'e' 'v' 'n' 'a' 'm' 'e' '='
-  deviceName <- asciiTextField InvalidDeviceName
-  Latin.char7 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i' 'd' '='
-  deviceId <- asciiTextField InvalidDeviceId
-  Latin.char ExpectedSpaceAfterDeviceId ' '
-  Latin.any ExpectedFieldsAfterDeviceId >>= \case
-    -- This is a hack, and it causes us to lose the eventtime and tz, but
-    -- these are somewhat low-value fields anyway. 
-    'l' -> pure ()
-    'e' -> do
-      P.cstring ExpectedEventTime (Ptr "venttime="#)
-      Latin.skipDigits1 ExpectedEventTime
-      P.cstring ExpectedTz (Ptr " tz="#)
-      _ <- P.takeTrailedBy ExpectedTz (c2w ' ')
-      Latin.char ExpectedLogId 'l'
-    _ -> P.fail ExpectedFieldsAfterDeviceId
-  Latin.char5 ExpectedLogId 'o' 'g' 'i' 'd' '='
-  logId <- asciiTextField InvalidLogId
-  Latin.char6 ExpectedType ' ' 't' 'y' 'p' 'e' '='
-  type_ <- asciiTextField InvalidType
-  Latin.char9 ExpectedSubtype ' ' 's' 'u' 'b' 't' 'y' 'p' 'e' '='
-  subtype <- asciiTextField InvalidSubtype
-  fields <- fieldsParser =<< P.effect Builder.new
   if month < 12
-    then pure Log
-      { deviceName, deviceId, logId, type_, subtype
-      , fields
-      , date = Date
-          (Year (fromIntegral year))
-          (Month (fromIntegral month))
-          (DayOfMonth (fromIntegral day))
-      , time = TimeOfDay
-          (fromIntegral hour)
-          (fromIntegral minute)
-          (fromIntegral (sec * 1000000000))
-      }
+    then do
+      let date = Date
+            (Year (fromIntegral year))
+            (Month (fromIntegral month))
+            (DayOfMonth (fromIntegral day))
+          time = TimeOfDay
+            (fromIntegral hour)
+            (fromIntegral minute)
+            (fromIntegral (sec * 1000000000))
+      pure Datetime{datetimeDate=date,datetimeTime=time}
     else P.fail InvalidDate
 
 fieldsParser ::

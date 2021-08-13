@@ -369,10 +369,15 @@ fullParser = do
       _ <- P.takeTrailedBy ExpectedVd 0x22
       Latin.char ExpectedVd ' '
       Datetime date time <- takeDateAndTime
-      P.cstring ExpectedEventTime (Ptr " eventtime="#)
-      Latin.skipDigits1 ExpectedEventTime
-      P.cstring ExpectedTz (Ptr " tz="#)
-      _ <- P.takeTrailedBy ExpectedTz (c2w ' ')
+      Latin.char ExpectedTime ' '
+      Latin.trySatisfy (=='e') >>= \case
+        True -> do
+          P.cstring ExpectedEventTime (Ptr "venttime="#)
+          Latin.skipDigits1 ExpectedEventTime
+          P.cstring ExpectedTz (Ptr " tz="#)
+          _ <- P.takeTrailedBy ExpectedTz (c2w ' ')
+          pure ()
+        False -> pure ()
       Latin.char6 ExpectedLogId 'l' 'o' 'g' 'i' 'd' '='
       logId <- asciiTextField InvalidLogId
       Latin.char6 ExpectedType ' ' 't' 'y' 'p' 'e' '='

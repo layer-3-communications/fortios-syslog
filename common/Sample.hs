@@ -10,6 +10,7 @@ module Sample
   , traffic_forward_E
   , traffic_forward_F
   , traffic_forward_G
+  , traffic_forward_H
   , utm_webfilter_A
   , utm_webfilter_B
   , utm_webfilter_C
@@ -233,4 +234,23 @@ traffic_forward_G = pack $ concat
   , "dstosname=\"Windows\" dstswversion=\"8\" dstunauthuser=\"administrator\" "
   , "dstunauthusersource=\"kerberos\" masterdstmac=\"0f:51:03:84:39:4b\" "
   , "dstmac=\"09:31:40:af:ba:35\" dstserver=0"
+  ]
+
+traffic_forward_H :: Bytes
+traffic_forward_H = pack $ concat
+  [ "<189>logver=56 timestamp=1628858159 tz=\"UTC-5\" devname=\"big_device\" "
+  , "devid=\"FG600C3913802107\" vd=\"root\" date=2021-08-13 time=07:35:59 "
+  , "logid=\"0000000013\" type=\"traffic\" subtype=\"forward\" "
+  , "level=\"notice\" eventtime=1628858159 srcip=192.0.2.211 "
+  , "srcname=\"MY-SRC\" srcport=62285 srcintf=\"Internal\" "
+  , "srcintfrole=\"lan\" dstip=192.0.2.254 dstport=8888 dstintf=\"WAN\" "
+  , "dstintfrole=\"wan\" poluuid=\"2e89feec-b855-0144-8c7d-957aba25cadc\" "
+  , "sessionid=182927871 proto=17 action=\"accept\" policyid=61 "
+  , "policytype=\"policy\" service=\"udp/8888\" dstcountry=\"United Kingdom\" "
+  , "srccountry=\"Reserved\" trandisp=\"noop\" duration=180 sentbyte=92 "
+  , "rcvdbyte=64 sentpkt=1 rcvdpkt=1 appcat=\"unscanned\" "
+  , "devtype=\"Windows PC\" osname=\"Windows 10 / 2016\" "
+  , "unauthuser=\"MYUSER$\" unauthusersource=\"kerberos\" "
+  , "mastersrcmac=\"f4:ea:ab:01:23:65\" srcmac=\"af:fa:ab:ba:07:70\" "
+  , "srcserver=1"
   ]

@@ -31,6 +31,8 @@ main = do
   testTrafficForwardF
   putStrLn "traffic_forward_G"
   testTrafficForwardG
+  putStrLn "traffic_forward_H"
+  testTrafficForwardH
   putStrLn "utm_webfilter_A"
   testUtmWebfilterA
   putStrLn "utm_webfilter_B"
@@ -167,6 +169,13 @@ testTrafficForwardF = case FGT.decode S.traffic_forward_F of
 
 testTrafficForwardG :: IO ()
 testTrafficForwardG = case FGT.decode S.traffic_forward_G of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "forward")
+      (fail "wrong subtype")
+
+testTrafficForwardH :: IO ()
+testTrafficForwardH = case FGT.decode S.traffic_forward_H of
   Left e -> fail (show e)
   Right x -> do
     when (FGT.subtype x /= str "forward")

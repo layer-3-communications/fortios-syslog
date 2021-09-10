@@ -1,10 +1,12 @@
 {-# language BangPatterns #-}
+{-# language DuplicateRecordFields #-}
 {-# language LambdaCase #-}
+{-# language MagicHash #-}
 {-# language NamedFieldPuns #-}
 {-# language PatternSynonyms #-}
-{-# language ViewPatterns #-}
-{-# language MagicHash #-}
+{-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
+{-# language ViewPatterns #-}
 
 module Fortios.Syslog.Unsafe
   ( Log(..)
@@ -18,6 +20,7 @@ module Fortios.Syslog.Unsafe
 import Chronos (Date(Date),TimeOfDay(TimeOfDay),Datetime(..))
 import Chronos (Month(Month),DayOfMonth(DayOfMonth),Year(Year))
 import Control.Monad (when)
+import Control.Monad.ST.Run (runIntByteArrayST)
 import Data.Builder.ST (Builder)
 import Data.Bytes.Parser (Parser)
 import Data.Bytes.Types (Bytes(Bytes))
@@ -33,12 +36,15 @@ import Net.Types (IPv4,IP)
 import qualified Data.Builder.ST as Builder
 import qualified Data.Bytes.Parser as P
 import qualified Data.Bytes.Parser.Latin as Latin
+import qualified Data.Bytes.Parser.Unsafe as Unsafe
+import qualified Data.Primitive as PM
 import qualified Net.IP as IP
 import qualified Net.IPv4 as IPv4
 import qualified Net.Mac as Mac
 import qualified Net.Types
 import qualified Fortios.Generated as G
 import qualified UUID
+import qualified Data.Bytes.Types
 
 data Log = Log
   { date :: {-# UNPACK #-} !Date
@@ -144,6 +150,7 @@ data DecodeException
   | InvalidQueryName
   | InvalidQueryType
   | InvalidQueryTypeValue
+  | InvalidReason
   | InvalidReceivedBytes
   | InvalidReceivedDelta
   | InvalidReceivedPackets
@@ -281,6 +288,7 @@ data Field
   | QueryType {-# UNPACK #-} !Bytes
   | QueryTypeValue {-# UNPACK #-} !Word64
     -- ^ IANA Internet Protocol Number.
+  | Reason {-# UNPACK #-} !Bytes
   | ReceivedBytes {-# UNPACK #-} !Word64
     -- ^ Number of bytes received.
   | ReceivedDelta {-# UNPACK #-} !Word64
@@ -520,7 +528,7 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     G.H_msg -> case zequal3 arr off 'm' 's' 'g' of
       0# -> do
-        val <- asciiTextField InvalidMessage
+        val <- escapedAsciiTextField InvalidMessage
         let !atom = Message val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
@@ -650,6 +658,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   6 -> case G.hashString6 arr off of
+    G.H_reason -> case zequal6 arr off 'r' 'e' 'a' 's' 'o' 'n' of
+      0# -> do
+        val <- escapedAsciiTextField InvalidReason
+        let !atom = Reason val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_qclass -> case zequal6 arr off 'q' 'c' 'l' 'a' 's' 's' of
       0# -> do
         val <- asciiTextField InvalidQueryClass
@@ -1334,6 +1348,56 @@ asciiTextField e = Latin.trySatisfy (== '"') >>= \case
   True -> P.takeTrailedBy e (c2w '"')
   False -> P.takeWhile (\w -> w /= c2w ' ')
 
+-- Field is optionally surrounded by quotes. This does not
+-- consume a trailing space. Also, if the field is quoted,
+-- the quoted field may contain quotes escaped by backslashes.
+escapedAsciiTextField :: e -> Parser e s Bytes
+escapedAsciiTextField e = Latin.trySatisfy (== '"') >>= \case
+  True -> do
+    start <- Unsafe.cursor
+    P.skipTrailedBy2 e 0x22 0x5C >>= \case
+      False -> do -- no backslashes, went all the way to a double quote
+        end <- Unsafe.cursor
+        let !len = (end - start) - 1
+        arr <- Unsafe.expose
+        pure Bytes{array=arr,offset=start,length=len}
+      True -> do -- found a backslash, we will need to escape quotes
+        Latin.char e '"'
+        consumeThroughUnescapedQuote e
+        end <- Unsafe.cursor
+        let !len = (end - start) - 1
+        arr <- Unsafe.expose
+        let bs = Bytes{array=arr,offset=start,length=len}
+        pure $! removeEscapeSequences bs
+  False -> P.takeWhile (\w -> w /= c2w ' ')
+
+-- | Precondition: every backslash is followed by a double quote
+removeEscapeSequences :: Bytes -> Bytes
+removeEscapeSequences Bytes{array,offset=off0,length=len0} =
+  let (lengthX,arrayX) = runIntByteArrayST $ do
+        dst <- PM.newByteArray len0
+        let go !ixSrc !ixDst !len = case len of
+              0 -> pure ixDst
+              _ -> do
+                let w :: Word8 = PM.indexByteArray array ixSrc
+                case w of
+                  0x5C -> go (ixSrc + 1) ixDst (len - 1)
+                  _ -> do
+                    PM.writeByteArray dst ixDst w
+                    go (ixSrc + 1) (ixDst + 1) (len - 1)
+        lenDst <- go off0 0 len0
+        PM.shrinkMutableByteArray dst lenDst
+        dst' <- PM.unsafeFreezeByteArray dst
+        pure (lenDst,dst')
+   in Bytes{array=arrayX,length=lengthX,offset=0}
+
+consumeThroughUnescapedQuote :: e -> Parser e s ()
+consumeThroughUnescapedQuote e = P.skipTrailedBy2 e 0x22 0x5C >>= \case
+  False -> pure ()
+  True -> do
+    Latin.char e '"'
+    consumeThroughUnescapedQuote e
+
 -- Some versions of FortiOS put quotes around uuids. Others do not.
 -- We handle both cases.
 uuidField :: e -> Parser e s Word128
@@ -1617,4 +1681,3 @@ c2w = fromIntegral . ord
 -- Returns zero when the characters are equal
 zeqChar# :: Char# -> Char# -> Int#
 zeqChar# c1 c2 = xorI# (ord# c1) (ord# c2)
-

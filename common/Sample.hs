@@ -15,6 +15,7 @@ module Sample
   , utm_webfilter_B
   , utm_webfilter_C
   , event_system_A
+  , event_wireless_A
   ) where
 
 import Data.Bytes (Bytes)
@@ -253,4 +254,17 @@ traffic_forward_H = pack $ concat
   , "unauthuser=\"MYUSER$\" unauthusersource=\"kerberos\" "
   , "mastersrcmac=\"f4:ea:ab:01:23:65\" srcmac=\"af:fa:ab:ba:07:70\" "
   , "srcserver=1"
+  ]
+
+event_wireless_A :: Bytes
+event_wireless_A = pack $ concat
+  [ "<172>date=2021-09-08 time=15:01:46 devname=\"alphabot\" "
+  , "devid=\"FG500E3914707621\" logid=\"0104043673\" type=\"event\" "
+  , "subtype=\"wireless\" level=\"warning\" vd=\"root\" "
+  , "eventtime=1631106107482668813 tz=\"+0200\" logdesc=\"Wireless "
+  , "station DNS process failed due to non-existing domain\" "
+  , "sn=\"FP220FTF50814936\" action=\"DNS-no-domain\" "
+  , "reason=\"Server 192.0.2.105 replied \\\"non-existing domain\\\"\" "
+  , "msg=\"DNS lookup of example.com from client ab:cd:ef:00:11:ef "
+  , "failed with \\\"non-existing domain\\\"\" remotewtptime=\"98.594337\""
   ]

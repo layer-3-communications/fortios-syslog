@@ -33,6 +33,8 @@ main = do
   testTrafficForwardG
   putStrLn "traffic_forward_H"
   testTrafficForwardH
+  putStrLn "event_wireless_A"
+  testEventWirelessA
   putStrLn "utm_webfilter_A"
   testUtmWebfilterA
   putStrLn "utm_webfilter_B"
@@ -181,6 +183,23 @@ testTrafficForwardH = case FGT.decode S.traffic_forward_H of
     when (FGT.subtype x /= str "forward")
       (fail "wrong subtype")
 
+testEventWirelessA :: IO ()
+testEventWirelessA = case FGT.decode S.event_wireless_A of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "wireless")
+      (fail "wrong subtype")
+    for_ (FGT.fields x)
+      (\case
+        FGT.Message s -> do
+          let expected = str "DNS lookup of example.com from client ab:cd:ef:00:11:ef failed with \"non-existing domain\""
+          when (s /= expected) (fail ("Wrong msg. Expected:\n" ++ show expected ++ "\nGot:\n" ++ show s))
+        FGT.Reason s -> do
+          let expected = str "Server 192.0.2.105 replied \"non-existing domain\""
+          when (s /= expected) (fail ("Wrong reason. Expected:\n" ++ show expected ++ "\nGot:\n" ++ show s))
+        _ -> pure ()
+      )
+
 testUtmWebfilterA :: IO ()
 testUtmWebfilterA = case FGT.decode S.utm_webfilter_A of
   Left e -> fail (show e)
@@ -189,6 +208,9 @@ testUtmWebfilterA = case FGT.decode S.utm_webfilter_A of
     for_ (FGT.fields x)
       (\case
         FGT.Profile name -> when (name /= str "my-profile") (fail "profile")
+        FGT.Message s -> do
+          let expected = str "URL belongs to an allowed category in policy"
+          when (s /= expected) (fail ("Wrong msg. Expected:\n" ++ show expected ++ "\nGot:\n" ++ show s))
         _ -> pure ()
       )
 

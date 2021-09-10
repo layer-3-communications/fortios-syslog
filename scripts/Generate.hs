@@ -114,6 +114,7 @@ allKeywords =
   , "rcvdbyte"
   , "rcvddelta"
   , "rcvdpkt"
+  , "reason"
   , "ref"
   , "referralurl"
   , "remip"

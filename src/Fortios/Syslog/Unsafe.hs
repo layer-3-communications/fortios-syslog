@@ -108,6 +108,7 @@ data DecodeException
   | InvalidDestinationOsName
   | InvalidDestinationOsVerson
   | InvalidDestinationPort
+  | InvalidDestinationRegion
   | InvalidDestinationServer
   | InvalidDestinationUuid
   | InvalidDeviceCategory
@@ -174,6 +175,7 @@ data DecodeException
   | InvalidSourceMac
   | InvalidSourceName
   | InvalidSourcePort
+  | InvalidSourceRegion
   | InvalidSourceServer
   | InvalidSourceSoftwareVersion
   | InvalidSourceUuid
@@ -248,6 +250,7 @@ data Field
   | DestinationOsName {-# UNPACK #-} !Bytes
   | DestinationOsVersion {-# UNPACK #-} !Bytes
   | DestinationPort {-# UNPACK #-} !Word16
+  | DestinationRegion {-# UNPACK #-} !Bytes
   | DestinationServer {-# UNPACK #-} !Word64
   | DestinationUuid {-# UNPACK #-} !Word128
   | DeviceCategory {-# UNPACK #-} !Bytes
@@ -317,6 +320,7 @@ data Field
   | SourceMac {-# UNPACK #-} !Net.Types.Mac
   | SourceName {-# UNPACK #-} !Bytes
   | SourcePort {-# UNPACK #-} !Word16
+  | SourceRegion {-# UNPACK #-} !Bytes
   | SourceServer {-# UNPACK #-} !Word64
   | SourceSoftwareVersion {-# UNPACK #-} !Bytes
   | SourceUuid {-# UNPACK #-} !Word128
@@ -1021,6 +1025,18 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   9 -> case G.hashString9 arr off of
+    G.H_dstregion -> case zequal9 arr off 'd' 's' 't' 'r' 'e' 'g' 'i' 'o' 'n' of
+      0# -> do
+        val <- asciiTextField InvalidDestinationRegion
+        let !atom = DestinationRegion val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    G.H_srcregion -> case zequal9 arr off 's' 'r' 'c' 'r' 'e' 'g' 'i' 'o' 'n' of
+      0# -> do
+        val <- asciiTextField InvalidSourceRegion
+        let !atom = SourceRegion val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_dstserver -> case zequal9 arr off 'd' 's' 't' 's' 'e' 'r' 'v' 'e' 'r' of
       0# -> do
         val <- Latin.decWord64 InvalidDestinationServer

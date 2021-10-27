@@ -11,6 +11,7 @@ module Sample
   , traffic_forward_F
   , traffic_forward_G
   , traffic_forward_H
+  , traffic_forward_I
   , utm_webfilter_A
   , utm_webfilter_B
   , utm_webfilter_C
@@ -254,6 +255,15 @@ traffic_forward_H = pack $ concat
   , "unauthuser=\"MYUSER$\" unauthusersource=\"kerberos\" "
   , "mastersrcmac=\"f4:ea:ab:01:23:65\" srcmac=\"af:fa:ab:ba:07:70\" "
   , "srcserver=1"
+  ]
+
+traffic_forward_I :: Bytes
+traffic_forward_I = pack $ concat
+  [ "<189>logver=604071911 timestamp=1635340667 devname=\"EXAMPLE-FW\" "
+  , "devid=\"FG200FT920865370\" vd=\"root\" date=2021-10-27 time=09:17:47 "
+  , "eventtime=1635340667879071090 tz=\"-0400\" logid=\"0000000013\" "
+  , "type=\"traffic\" subtype=\"forward\" level=\"notice\" "
+  , "srcip=192.0.2.5 srcport=44069"
   ]
 
 event_wireless_A :: Bytes

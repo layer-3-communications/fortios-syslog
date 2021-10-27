@@ -72,6 +72,7 @@ data DecodeException
   | ExpectedTimestamp
   | ExpectedType
   | ExpectedTz
+  | ExpectedTzOrDeviceName
   | ExpectedVd
   | IncompleteKey
   | InvalidAction
@@ -371,9 +372,15 @@ fullParser = do
       Latin.skipDigits1 ExpectedLogVer
       P.cstring ExpectedTimestamp (Ptr " timestamp="#)
       Latin.skipDigits1 ExpectedLogVer
-      P.cstring ExpectedTz (Ptr " tz=\""#)
-      _ <- P.takeTrailedBy ExpectedTz 0x22
-      Latin.char9 ExpectedDeviceName ' ' 'd' 'e' 'v' 'n' 'a' 'm' 'e' '='
+      Latin.char ExpectedLogVer ' '
+      Latin.any ExpectedLogVer >>= \case
+        't' -> do
+          Latin.char3 ExpectedTz 'z' '=' '"'
+          _ <- P.takeTrailedBy ExpectedTz 0x22
+          Latin.char2 ExpectedDeviceName ' ' 'd'
+        'd' -> pure ()
+        _ -> P.fail ExpectedTzOrDeviceName
+      Latin.char7 ExpectedDeviceName 'e' 'v' 'n' 'a' 'm' 'e' '='
       deviceName <- asciiTextField InvalidDeviceName
       Latin.char7 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i' 'd' '='
       deviceId <- asciiTextField InvalidDeviceId

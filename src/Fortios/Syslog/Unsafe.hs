@@ -1385,7 +1385,10 @@ escapedAsciiTextField e = Latin.trySatisfy (== '"') >>= \case
         arr <- Unsafe.expose
         pure Bytes{array=arr,offset=start,length=len}
       True -> do -- found a backslash, we will need to escape quotes
-        Latin.char e '"'
+        c <- Latin.any e
+        if c == '"' || c == ']'
+          then pure ()
+          else P.fail e
         consumeThroughUnescapedQuote e
         end <- Unsafe.cursor
         let !len = (end - start) - 1
@@ -1394,7 +1397,8 @@ escapedAsciiTextField e = Latin.trySatisfy (== '"') >>= \case
         pure $! removeEscapeSequences bs
   False -> P.takeWhile (\w -> w /= c2w ' ')
 
--- | Precondition: every backslash is followed by a double quote
+-- | Precondition: Every backslash is followed by a double quote or by
+-- a close square bracket.
 removeEscapeSequences :: Bytes -> Bytes
 removeEscapeSequences Bytes{array,offset=off0,length=len0} =
   let (lengthX,arrayX) = runIntByteArrayST $ do
@@ -1418,8 +1422,14 @@ consumeThroughUnescapedQuote :: e -> Parser e s ()
 consumeThroughUnescapedQuote e = P.skipTrailedBy2 e 0x22 0x5C >>= \case
   False -> pure ()
   True -> do
-    Latin.char e '"'
-    consumeThroughUnescapedQuote e
+    c <- Latin.any e
+    -- Having a double-quote after a backslash is normal and expected.
+    -- We just escape it. However, the backslash before the
+    -- close-square-bracket is probably an accident by Fortinet.
+    -- It happens in OSPF logs.
+    if c == '"' || c == ']'
+      then consumeThroughUnescapedQuote e
+      else P.fail e
 
 -- Some versions of FortiOS put quotes around uuids. Others do not.
 -- We handle both cases.

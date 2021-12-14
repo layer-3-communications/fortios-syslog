@@ -145,6 +145,7 @@ data DecodeException
   | InvalidPolicyId
   | InvalidPolicyType
   | InvalidPolicyUuid
+  | InvalidPriority
   | InvalidProfile
   | InvalidProfileType
   | InvalidProtocol
@@ -284,6 +285,7 @@ data Field
   | PolicyId {-# UNPACK #-} !Word64
   | PolicyType {-# UNPACK #-} !Bytes
   | PolicyUuid {-# UNPACK #-} !Word128
+  | Priority {-# UNPACK #-} !Bytes
   | Profile {-# UNPACK #-} !Bytes
   | ProfileType {-# UNPACK #-} !Bytes
   | Protocol {-# UNPACK #-} !Word8
@@ -382,8 +384,15 @@ fullParser = do
         _ -> P.fail ExpectedTzOrDeviceName
       Latin.char7 ExpectedDeviceName 'e' 'v' 'n' 'a' 'm' 'e' '='
       deviceName <- asciiTextField InvalidDeviceName
-      Latin.char7 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i' 'd' '='
-      deviceId <- asciiTextField InvalidDeviceId
+      Latin.char5 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i'
+      deviceId <- Latin.any ExpectedDeviceId >>= \case
+        'd' -> do
+          Latin.char ExpectedDeviceId '='
+          asciiTextField InvalidDeviceId
+        'c' -> do
+          Latin.char5 ExpectedDeviceId 'e' '_' 'i' 'd' '='
+          asciiTextField InvalidDeviceId
+        _ -> P.fail ExpectedDeviceId
       Latin.char5 ExpectedVd ' ' 'v' 'd' '=' '"'
       _ <- P.takeTrailedBy ExpectedVd 0x22
       Latin.char ExpectedVd ' '
@@ -397,8 +406,15 @@ fullParser = do
           _ <- P.takeTrailedBy ExpectedTz (c2w ' ')
           pure ()
         False -> pure ()
-      Latin.char6 ExpectedLogId 'l' 'o' 'g' 'i' 'd' '='
-      logId <- asciiTextField InvalidLogId
+      Latin.char3 ExpectedLogId 'l' 'o' 'g'
+      logId <- Latin.any ExpectedLogId >>= \case
+        '_' -> do
+          Latin.char3 ExpectedLogId 'i' 'd' '='
+          asciiTextField InvalidLogId
+        'i' -> do
+          Latin.char2 ExpectedLogId 'd' '='
+          asciiTextField InvalidLogId
+        _ -> P.fail ExpectedLogId
       Latin.char6 ExpectedType ' ' 't' 'y' 'p' 'e' '='
       type_ <- asciiTextField InvalidType
       Latin.char9 ExpectedSubtype ' ' 's' 'u' 'b' 't' 'y' 'p' 'e' '='
@@ -414,8 +430,15 @@ fullParser = do
       Datetime date time <- takeDateAndTime
       Latin.char9 ExpectedDeviceName ' ' 'd' 'e' 'v' 'n' 'a' 'm' 'e' '='
       deviceName <- asciiTextField InvalidDeviceName
-      Latin.char7 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i' 'd' '='
-      deviceId <- asciiTextField InvalidDeviceId
+      Latin.char5 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i'
+      deviceId <- Latin.any ExpectedDeviceId >>= \case
+        'd' -> do
+          Latin.char ExpectedDeviceId '='
+          asciiTextField InvalidDeviceId
+        'c' -> do
+          Latin.char5 ExpectedDeviceId 'e' '_' 'i' 'd' '='
+          asciiTextField InvalidDeviceId
+        _ -> P.fail ExpectedDeviceId
       Latin.char ExpectedSpaceAfterDeviceId ' '
       Latin.any ExpectedFieldsAfterDeviceId >>= \case
         -- This is a hack, and it causes us to lose the eventtime and tz, but
@@ -428,8 +451,15 @@ fullParser = do
           _ <- P.takeTrailedBy ExpectedTz (c2w ' ')
           Latin.char ExpectedLogId 'l'
         _ -> P.fail ExpectedFieldsAfterDeviceId
-      Latin.char5 ExpectedLogId 'o' 'g' 'i' 'd' '='
-      logId <- asciiTextField InvalidLogId
+      Latin.char2 ExpectedLogId 'o' 'g'
+      logId <- Latin.any ExpectedLogId >>= \case
+        '_' -> do
+          Latin.char3 ExpectedLogId 'i' 'd' '='
+          asciiTextField InvalidLogId
+        'i' -> do
+          Latin.char2 ExpectedLogId 'd' '='
+          asciiTextField InvalidLogId
+        _ -> P.fail ExpectedLogId
       Latin.char6 ExpectedType ' ' 't' 'y' 'p' 'e' '='
       type_ <- asciiTextField InvalidType
       Latin.char9 ExpectedSubtype ' ' 's' 'u' 'b' 't' 'y' 'p' 'e' '='
@@ -523,6 +553,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       0# -> do
         val <- asciiTextField InvalidVpn
         let !atom = Vpn val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    G.H_pri -> case zequal3 arr off 'p' 'r' 'i' of
+      0# -> do
+        val <- asciiTextField InvalidPriority
+        let !atom = Priority val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     G.H_app -> case zequal3 arr off 'a' 'p' 'p' of

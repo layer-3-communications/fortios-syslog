@@ -105,6 +105,7 @@ allKeywords =
   , "policyid"
   , "policytype"
   , "poluuid"
+  , "pri"
   , "profile"
   , "profiletype"
   , "proto"

@@ -12,6 +12,7 @@ module Sample
   , traffic_forward_G
   , traffic_forward_H
   , traffic_forward_I
+  , traffic_forward_J
   , utm_webfilter_A
   , utm_webfilter_B
   , utm_webfilter_C
@@ -277,4 +278,25 @@ event_wireless_A = pack $ concat
   , "reason=\"Server 192.0.2.105 replied \\\"non-existing domain\\\"\" "
   , "msg=\"DNS lookup of example.com from client ab:cd:ef:00:11:ef "
   , "failed with \\\"non-existing domain\\\"\" remotewtptime=\"98.594337\""
+  ]
+
+traffic_forward_J :: Bytes
+traffic_forward_J = pack $ concat
+  [ "<189>logver=604071911 timestamp=1657911096 devname=\"dabot\" "
+  , "devid=\"FG5H1E5818482910\" vd=\"root\" date=2022-07-15 "
+  , "time=13:51:36 eventtime=1657911096381101465 tz=\"-0500\" logid=\"0000000020\" "
+  , "type=\"traffic\" subtype=\"forward\" level=\"notice\" srcip=192.168.190.18 "
+  , "srcname=\"SYN-TEST\" srcport=54519 srcintf=\"myintf\" srcintfrole=\"lan\" "
+  , "dstip=192.0.2.200 dstport=8081 dstintf=\"VDOM Link1\" "
+  , "dstintfrole=\"undefined\" srccountry=\"Reserved\" "
+  , "dstcountry=\"United States\" sessionid=3459023332 proto=6 action=\"accept\" "
+  , "policyid=212 policytype=\"policy\" poluuid=\"b71a33a6-0f55-51e4-337e-78c707d90be0\" "
+  , "policyname=\"test-to-external\" service=\"EDR\" trandisp=\"snat\" "
+  , "transip=192.0.2.254 transport=54519 duration=1719 "
+  , "sentbyte=208014 rcvdbyte=112971 sentpkt=1013 rcvdpkt=1013 "
+  , "appcat=\"unscanned\" sentdelta=14688 rcvddelta=7896 srchwvendor=\"VMware\" "
+  , "devtype=\"Server\" srcfamily=\"Virtual Machine\" osname=\"Windows\" "
+  , "srchwversion=\"Workstation pro\" srcswversion=\"8.1\" "
+  , "unauthuser=\"administrator\" unauthusersource=\"kerberos\" "
+  , "mastersrcmac=\"01:50:06:95:6e:ef\" srcmac=\"f0:43:56:94:0e:ef\" srcserver=0"
   ]

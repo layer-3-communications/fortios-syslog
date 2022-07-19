@@ -4,7 +4,7 @@ import Control.Monad (when)
 import Data.Bytes (Bytes)
 import Data.Foldable (for_)
 
-import qualified Data.Bytes as Bytes
+import qualified Data.Bytes.Text.Latin1 as Latin1
 import qualified Fortios.Syslog as FGT
 import qualified Sample as S
 import qualified Net.IP as IP
@@ -35,6 +35,8 @@ main = do
   testTrafficForwardH
   putStrLn "traffic_forward_I"
   testTrafficForwardI
+  putStrLn "traffic_forward_J"
+  testTrafficForwardJ
   putStrLn "event_wireless_A"
   testEventWirelessA
   putStrLn "utm_webfilter_A"
@@ -141,7 +143,7 @@ testTrafficForwardD = case FGT.decode S.traffic_forward_D of
     for_ (FGT.fields x)
       (\case
         FGT.DeviceType n -> when (n /= str "Router/NAT Device")
-          (fail ("wrong devtype: got " ++ Bytes.toLatinString n))
+          (fail ("wrong devtype: got " ++ Latin1.toString n))
         _ -> pure ()
       )
 
@@ -191,6 +193,20 @@ testTrafficForwardI = case FGT.decode S.traffic_forward_I of
   Right x -> do
     when (FGT.subtype x /= str "forward")
       (fail "wrong subtype")
+
+testTrafficForwardJ :: IO ()
+testTrafficForwardJ = case FGT.decode S.traffic_forward_J of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "forward")
+      (fail "wrong subtype")
+    for_ (FGT.fields x)
+      (\case
+        FGT.TranslatedSource ip port -> do
+          when (ip /= IPv4.fromOctets 192 0 2 254) (fail "wrong transip")
+          when (port /= 54519) (fail "wrong transport")
+        _ -> pure ()
+      )
 
 testEventWirelessA :: IO ()
 testEventWirelessA = case FGT.decode S.event_wireless_A of
@@ -267,8 +283,8 @@ testEventSystemA pri = case FGT.decode msg of
       )
   where
   msg = case pri of
-    WithPriority -> Bytes.fromLatinString "<158>" <> S.event_system_A
+    WithPriority -> Latin1.fromString "<158>" <> S.event_system_A
     WithoutPriority -> S.event_system_A
 
 str :: String -> Bytes
-str = Bytes.fromAsciiString
+str = Latin1.fromString

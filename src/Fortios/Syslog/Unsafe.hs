@@ -92,9 +92,9 @@ data DecodeException
   | InvalidClientReputationAction
   | InvalidClientReputationLevel
   | InvalidClientReputationScore
+  | InvalidCountApplication
   | InvalidCountIps
   | InvalidCountWeb
-  | InvalidCountApplication
   | InvalidDate
   | InvalidDescription
   | InvalidDestinationCountry
@@ -123,6 +123,7 @@ data DecodeException
   | InvalidEventTime
   | InvalidEventType
   | InvalidGroup
+  | InvalidHealthCheck
   | InvalidHostname
   | InvalidIncidentSerialNumber
   | InvalidInterface
@@ -139,7 +140,9 @@ data DecodeException
   | InvalidMasterSourceMac
   | InvalidMessage
   | InvalidMethod
+  | InvalidNewValue
   | InvalidNextStatistics
+  | InvalidOldValue
   | InvalidOsName
   | InvalidOsVersion
   | InvalidPolicyId
@@ -157,8 +160,8 @@ data DecodeException
   | InvalidReceivedBytes
   | InvalidReceivedDelta
   | InvalidReceivedPackets
-  | InvalidReferralUrl
   | InvalidReference
+  | InvalidReferralUrl
   | InvalidRemoteIp
   | InvalidRemotePort
   | InvalidRequestType
@@ -200,8 +203,8 @@ data DecodeException
   | InvalidUnauthenticatedUserSource
   | InvalidUnknownField
   | InvalidUrl
-  | InvalidUrlFilterList
   | InvalidUrlFilterIndex
+  | InvalidUrlFilterList
   | InvalidUrlSource
   | InvalidUser
   | InvalidUtmAction
@@ -265,6 +268,7 @@ data Field
   | EventTime {-# UNPACK #-} !Word64
   | EventType {-# UNPACK #-} !Bytes
   | Group {-# UNPACK #-} !Bytes
+  | HealthCheck {-# UNPACK #-} !Bytes
   | Hostname {-# UNPACK #-} !Bytes
   | IncidentSerialNumber {-# UNPACK #-} !Word64
   | Interface {-# UNPACK #-} !Bytes
@@ -281,6 +285,8 @@ data Field
   | Message {-# UNPACK #-} !Bytes
   | Method {-# UNPACK #-} !Bytes
   | NextStatistics {-# UNPACK #-} !Word64
+  | NewValue {-# UNPACK #-} !Bytes
+  | OldValue {-# UNPACK #-} !Bytes
   | OsName {-# UNPACK #-} !Bytes
   | OsVersion {-# UNPACK #-} !Bytes
   | PolicyId {-# UNPACK #-} !Word64
@@ -931,6 +937,18 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   8 -> case G.hashString8 arr off of
+    G.H_oldvalue -> case zequal8 arr off 'o' 'l' 'd' 'v' 'a' 'l' 'u' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidOldValue
+        let !atom = OldValue val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    G.H_newvalue -> case zequal8 arr off 'n' 'e' 'w' 'v' 'a' 'l' 'u' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidNewValue
+        let !atom = NewValue val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_qtypeval -> case zequal8 arr off 'q' 't' 'y' 'p' 'e' 'v' 'a' 'l' of
       0# -> do
         val <- Latin.decWord64 InvalidQueryTypeValue
@@ -1252,6 +1270,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   11 -> case G.hashString11 arr off of
+    G.H_healthcheck -> case zequal11 arr off 'h' 'e' 'a' 'l' 't' 'h' 'c' 'h' 'e' 'c' 'k' of
+      0# -> do
+        val <- asciiTextField InvalidHealthCheck
+        let !atom = HealthCheck val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_devcategory -> case zequal11 arr off 'd' 'e' 'v' 'c' 'a' 't' 'e' 'g' 'o' 'r' 'y' of
       0# -> do
         val <- asciiTextField InvalidDeviceCategory

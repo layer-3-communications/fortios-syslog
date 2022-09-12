@@ -166,6 +166,7 @@ allKeywords =
   , "vpntunnel"
   , "vpntype"
   , "vwlid"
+  , "vwlname"
   , "vwlquality"
   , "wanin"
   , "wanout"

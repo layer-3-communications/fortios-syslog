@@ -207,6 +207,7 @@ data DecodeException
   | InvalidUtmAction
   | InvalidVirtualDomain
   | InvalidVirtualWanLinkId
+  | InvalidVirtualWanLinkName
   | InvalidVirtualWanLinkQuality
   | InvalidVpn
   | InvalidVpnType
@@ -347,6 +348,7 @@ data Field
   | User {-# UNPACK #-} !Bytes
   | VirtualDomain {-# UNPACK #-} !Bytes
   | VirtualWanLinkId {-# UNPACK #-} !Word64
+  | VirtualWanLinkName {-# UNPACK #-} !Bytes
   | VirtualWanLinkQuality {-# UNPACK #-} !Bytes
   | Vpn {-# UNPACK #-} !Bytes
   | VpnType {-# UNPACK #-} !Bytes
@@ -783,6 +785,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   7 -> case G.hashString7 arr off of
+    G.H_vwlname -> case zequal7 arr off 'v' 'w' 'l' 'n' 'a' 'm' 'e' of
+      0# -> do
+        w <- asciiTextField InvalidVirtualWanLinkName
+        let !atom = VirtualWanLinkName w
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_srcuuid -> case zequal7 arr off 's' 'r' 'c' 'u' 'u' 'i' 'd' of
       0# -> do
         w <- uuidField InvalidSourceUuid

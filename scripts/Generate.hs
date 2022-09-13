@@ -97,6 +97,7 @@ allKeywords =
   , "mac"
   , "masterdstmac"
   , "mastersrcmac"
+  , "member"
   , "method"
   , "msg"
   , "nextstat"

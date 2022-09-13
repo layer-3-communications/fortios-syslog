@@ -138,6 +138,7 @@ data DecodeException
   | InvalidMac
   | InvalidMasterDestinationMac
   | InvalidMasterSourceMac
+  | InvalidMember
   | InvalidMessage
   | InvalidMethod
   | InvalidNewValue
@@ -282,6 +283,7 @@ data Field
   | Mac {-# UNPACK #-} !Net.Types.Mac
   | MasterDestinationMac {-# UNPACK #-} !Net.Types.Mac
   | MasterSourceMac {-# UNPACK #-} !Net.Types.Mac
+  | Member {-# UNPACK #-} !Bytes
   | Message {-# UNPACK #-} !Bytes
   | Method {-# UNPACK #-} !Bytes
   | NextStatistics {-# UNPACK #-} !Word64
@@ -763,6 +765,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       0# -> do
         val <- asciiTextField InvalidAction
         let !atom = Action val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    G.H_member -> case zequal6 arr off 'm' 'e' 'm' 'b' 'e' 'r' of
+      0# -> do
+        val <- asciiTextField InvalidMember
+        let !atom = Member val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     G.H_method -> case zequal6 arr off 'm' 'e' 't' 'h' 'o' 'd' of

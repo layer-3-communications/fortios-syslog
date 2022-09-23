@@ -147,6 +147,7 @@ data DecodeException
   | InvalidOsName
   | InvalidOsVersion
   | InvalidPolicyId
+  | InvalidPolicyName
   | InvalidPolicyType
   | InvalidPolicyUuid
   | InvalidPriority
@@ -292,6 +293,7 @@ data Field
   | OsName {-# UNPACK #-} !Bytes
   | OsVersion {-# UNPACK #-} !Bytes
   | PolicyId {-# UNPACK #-} !Word64
+  | PolicyName {-# UNPACK #-} !Bytes
   | PolicyType {-# UNPACK #-} !Bytes
   | PolicyUuid {-# UNPACK #-} !Word128
   | Priority {-# UNPACK #-} !Bytes
@@ -1278,6 +1280,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   11 -> case G.hashString11 arr off of
+    G.H_policy_name -> case zequal11 arr off 'p' 'o' 'l' 'i' 'c' 'y' '_' 'n' 'a' 'm' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidPolicyName
+        let !atom = PolicyName val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_healthcheck -> case zequal11 arr off 'h' 'e' 'a' 'l' 't' 'h' 'c' 'h' 'e' 'c' 'k' of
       0# -> do
         val <- asciiTextField InvalidHealthCheck

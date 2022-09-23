@@ -108,6 +108,8 @@ allKeywords =
   , "outintf"
   , "policyid"
   , "policytype"
+  , "policy_apply_date"
+  , "policy_name"
   , "poluuid"
   , "pri"
   , "profile"

@@ -1208,6 +1208,13 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   10 -> case G.hashString10 arr off of
+    G.H_policyname -> case zequal10 arr off 'p' 'o' 'l' 'i' 'c' 'y' 'n' 'a' 'm' 'e' of
+      -- FortiOS uses both policyname and policy_name to mean the same thing.
+      0# -> do
+        val <- asciiTextField InvalidPolicyName
+        let !atom = PolicyName val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_session_id -> case zequal10 arr off 's' 'e' 's' 's' 'i' 'o' 'n' '_' 'i' 'd' of
       0# -> do
         -- For some crazy reason, FortiOS logs can have the session identifier
@@ -1281,6 +1288,7 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
     _ -> discardUnknownField b0
   11 -> case G.hashString11 arr off of
     G.H_policy_name -> case zequal11 arr off 'p' 'o' 'l' 'i' 'c' 'y' '_' 'n' 'a' 'm' 'e' of
+      -- FortiOS uses both policyname and policy_name to mean the same thing.
       0# -> do
         val <- asciiTextField InvalidPolicyName
         let !atom = PolicyName val

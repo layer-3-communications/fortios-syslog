@@ -16,6 +16,7 @@ module Sample
   , utm_webfilter_A
   , utm_webfilter_B
   , utm_webfilter_C
+  , utm_webfilter_D
   , event_system_A
   , event_wireless_A
   ) where
@@ -206,6 +207,14 @@ utm_webfilter_C = pack $ concat
   , "sentbyte=38053 rcvdbyte=126033 direction=outgoing "
   , "msg=\"URL belongs to an allowed category in policy\" "
   , "method=domain cat=42 catdesc=\"Shopping\""
+  ]
+
+utm_webfilter_D :: Bytes
+utm_webfilter_D = pack $ concat
+  [ "<189>logver=604061783 timestamp=1674676443 devname=\"DC5AXRFW\" "
+  , "devid=\"F5KF20T017458715\" vd=\"root\" date=2023-01-25 time=13:54:03 "
+  , "slot=2 eventtime=1674676443552591387 tz=\"-0600\" logid=\"0317013312\" "
+  , "type=\"utm\" subtype=\"webfilter\" eventtype=\"ftgd_allow\" level=\"notice\""
   ]
 
 event_system_A :: Bytes

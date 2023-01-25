@@ -65,6 +65,7 @@ data DecodeException
   | ExpectedFieldsAfterDeviceId
   | ExpectedLogId
   | ExpectedLogVer
+  | ExpectedSlotId
   | ExpectedSpace
   | ExpectedSpaceAfterDeviceId
   | ExpectedSubtype
@@ -410,6 +411,12 @@ fullParser = do
       Latin.char ExpectedVd ' '
       Datetime date time <- takeDateAndTime
       Latin.char ExpectedTime ' '
+      Latin.trySatisfy (=='s') >>= \case
+        True -> do
+          P.cstring ExpectedEventTime (Ptr "lot="#)
+          Latin.skipDigits1 ExpectedSlotId
+          Latin.char ExpectedSlotId ' '
+        False -> pure ()
       Latin.trySatisfy (=='e') >>= \case
         True -> do
           P.cstring ExpectedEventTime (Ptr "venttime="#)

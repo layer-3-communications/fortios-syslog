@@ -45,6 +45,8 @@ main = do
   testUtmWebfilterB
   putStrLn "utm_webfilter_C"
   testUtmWebfilterC
+  putStrLn "utm_webfilter_D"
+  testUtmWebfilterD
   putStrLn "event_system_A:priority"
   testEventSystemA WithPriority
   putStrLn "event_system_A:no-priority"
@@ -264,6 +266,12 @@ testUtmWebfilterC = case FGT.decode S.utm_webfilter_C of
           (fail "referralurl")
         _ -> pure ()
       )
+
+testUtmWebfilterD :: IO ()
+testUtmWebfilterD = case FGT.decode S.utm_webfilter_D of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "webfilter") (fail "wrong subtype")
 
 testEventSystemA :: Priority -> IO ()
 testEventSystemA pri = case FGT.decode msg of

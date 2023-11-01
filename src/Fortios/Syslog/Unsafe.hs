@@ -1429,7 +1429,7 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       P.effect (Builder.push atom b0)
     _ -> discardUnknownField b0
   14 -> case G.hashString14 arr off of
-    G.H_analyticscksum -> case zequal14 arr off 'a' 'n' 'a' 'l' 'y' 't' 'i' 'c' 's' 'c' 'h' 's' 'u' 'm' of
+    G.H_analyticscksum -> case zequal14 arr off 'a' 'n' 'a' 'l' 'y' 't' 'i' 'c' 's' 'c' 'k' 's' 'u' 'm' of
       0# -> do
         quoted <- Latin.trySatisfy (=='"')
         val <- Latin.hexFixedWord256 InvalidAnalyticsChecksum

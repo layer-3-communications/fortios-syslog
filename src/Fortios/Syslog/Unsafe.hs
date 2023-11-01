@@ -984,7 +984,9 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     G.H_checksum -> case zequal8 arr off 'c' 'h' 'e' 'c' 'k' 's' 'u' 'm' of
       0# -> do
-        val <- Latin.hexWord32 InvalidChecksum
+        quoted <- Latin.trySatisfy (=='"')
+        val <- Latin.hexFixedWord32 InvalidChecksum
+        when quoted (Latin.char InvalidMasterSourceMac '"')
         let !atom = Checksum val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
@@ -1431,7 +1433,7 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       0# -> do
         quoted <- Latin.trySatisfy (=='"')
         val <- Latin.hexFixedWord256 InvalidAnalyticsChecksum
-        when quoted (Latin.char InvalidMasterDestinationMac '"')
+        when quoted (Latin.char InvalidAnalyticsChecksum '"')
         let !atom = AnalyticsChecksum val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0

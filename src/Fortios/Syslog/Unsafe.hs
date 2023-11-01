@@ -27,7 +27,7 @@ import Data.Bytes.Types (Bytes(Bytes))
 import Data.Char (ord)
 import Data.Chunks (Chunks)
 import Data.Primitive (ByteArray(..))
-import Data.WideWord (Word128)
+import Data.WideWord (Word128,Word256)
 import Data.Word (Word8,Word16,Word32,Word64)
 import GHC.Exts (Int#,(+#),Ptr(Ptr))
 import GHC.Exts (Int(I#),Char(C#),Char#,indexCharArray#,ord#,xorI#,orI#)
@@ -78,6 +78,7 @@ data DecodeException
   | IncompleteKey
   | InvalidAction
   | InvalidAlert
+  | InvalidAnalyticsChecksum
   | InvalidApp
   | InvalidApplicationAction
   | InvalidApplicationCategory
@@ -95,6 +96,7 @@ data DecodeException
   | InvalidClientReputationAction
   | InvalidClientReputationLevel
   | InvalidClientReputationScore
+  | InvalidContentDisarmed
   | InvalidCountApplication
   | InvalidCountIps
   | InvalidCountWeb
@@ -227,6 +229,7 @@ data DecodeException
 data Field
   = Action {-# UNPACK #-} !Bytes
   | Alert {-# UNPACK #-} !Word64
+  | AnalyticsChecksum {-# UNPACK #-} !Word256
   | App {-# UNPACK #-} !Bytes
   | ApplicationAction {-# UNPACK #-} !Bytes
   | ApplicationCategory {-# UNPACK #-} !Bytes
@@ -243,6 +246,7 @@ data Field
   | CentralNatId {-# UNPACK #-} !Word64
   | CdrContent {-# UNPACK #-} !Bytes
   | Checksum {-# UNPACK #-} !Word32
+  | ContentDisarmed {-# UNPACK #-} !Bytes
   | CountIps {-# UNPACK #-} !Word64
     -- ^ Number of the IPS logs associated with the session
   | ClientReputationScore {-# UNPACK #-} !Word64
@@ -1422,10 +1426,24 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       let !atom = UrlFilterList val
       P.effect (Builder.push atom b0)
     _ -> discardUnknownField b0
-  14 -> case zequal14 arr off 'd' 's' 't' 'd' 'e' 'v' 'c' 'a' 't' 'e' 'g' 'o' 'r' 'y' of
+  14 -> case G.hashString14 arr off of
+    G.H_analyticscksum -> case zequal14 arr off 'a' 'n' 'a' 'l' 'y' 't' 'i' 'c' 's' 'c' 'h' 's' 'u' 'm' of
+      0# -> do
+        val <- Latin.hexFixedWord256 InvalidAnalyticsChecksum
+        let !atom = AnalyticsChecksum val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    G.H_dstdevcategory -> case zequal14 arr off 'd' 's' 't' 'd' 'e' 'v' 'c' 'a' 't' 'e' 'g' 'o' 'r' 'y' of
+      0# -> do
+        val <- asciiTextField InvalidDestinationDeviceCategory
+        let !atom = DestinationDeviceCategory val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    _ -> discardUnknownField b0
+  15 -> case zequal15 arr off 'c' 'o' 'n' 't' 'e' 'n' 't' 'd' 'i' 's' 'a' 'r' 'm' 'e' 'd' of
     0# -> do
-      val <- asciiTextField InvalidDestinationDeviceCategory
-      let !atom = DestinationDeviceCategory val
+      val <- asciiTextField InvalidContentDisarmed
+      let !atom = ContentDisarmed val
       P.effect (Builder.push atom b0)
     _ -> discardUnknownField b0
   16 -> case G.hashString16 arr off of
@@ -1796,6 +1814,38 @@ zequal14 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# 
   zeqChar# (indexCharArray# arr (off +# 12#)) m
   `orI#`
   zeqChar# (indexCharArray# arr (off +# 13#)) n
+
+zequal15 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
+zequal15 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g) (C# h) (C# i) (C# j) (C# k) (C# l) (C# m) (C# n) (C# o) =
+  zeqChar# (indexCharArray# arr off) a
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 1#)) b
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 2#)) c
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 3#)) d
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 4#)) e
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 5#)) f
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 6#)) g
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 7#)) h
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 8#)) i
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 9#)) j
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 10#)) k
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 11#)) l
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 12#)) m
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 13#)) n
+  `orI#`
+  zeqChar# (indexCharArray# arr (off +# 14#)) o
 
 zequal16 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
 zequal16 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g) (C# h) (C# i) (C# j) (C# k) (C# l) (C# m) (C# n) (C# o) (C# p) =

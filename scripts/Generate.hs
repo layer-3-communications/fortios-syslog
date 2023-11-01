@@ -36,6 +36,7 @@ allKeywords :: [String]
 allKeywords =
   [ "action"
   , "alert"
+  , "analyticscksum"
   , "app"
   , "appact"
   , "appcat"
@@ -51,6 +52,7 @@ allKeywords =
   , "cdrcontent"
   , "centralnatid"
   , "checksum"
+  , "contentdisarmed"
   , "cookies"
   , "countapp"
   , "countips"

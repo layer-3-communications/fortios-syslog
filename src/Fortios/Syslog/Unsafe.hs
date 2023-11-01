@@ -28,7 +28,7 @@ import Data.Char (ord)
 import Data.Chunks (Chunks)
 import Data.Primitive (ByteArray(..))
 import Data.WideWord (Word128)
-import Data.Word (Word8,Word16,Word64)
+import Data.Word (Word8,Word16,Word32,Word64)
 import GHC.Exts (Int#,(+#),Ptr(Ptr))
 import GHC.Exts (Int(I#),Char(C#),Char#,indexCharArray#,ord#,xorI#,orI#)
 import Net.Types (IPv4,IP)
@@ -89,7 +89,9 @@ data DecodeException
   | InvalidAuthServer
   | InvalidCategory
   | InvalidCategoryDescription
+  | InvalidCdrContent
   | InvalidCentralNatId
+  | InvalidChecksum
   | InvalidClientReputationAction
   | InvalidClientReputationLevel
   | InvalidClientReputationScore
@@ -123,6 +125,7 @@ data DecodeException
   | InvalidError
   | InvalidEventTime
   | InvalidEventType
+  | InvalidFilename
   | InvalidGroup
   | InvalidHealthCheck
   | InvalidHostname
@@ -238,6 +241,8 @@ data Field
   | Category {-# UNPACK #-} !Word64
   | CategoryDescription {-# UNPACK #-} !Bytes
   | CentralNatId {-# UNPACK #-} !Word64
+  | CdrContent {-# UNPACK #-} !Bytes
+  | Checksum {-# UNPACK #-} !Word32
   | CountIps {-# UNPACK #-} !Word64
     -- ^ Number of the IPS logs associated with the session
   | ClientReputationScore {-# UNPACK #-} !Word64
@@ -271,6 +276,7 @@ data Field
   | EventTime {-# UNPACK #-} !Word64
   | EventType {-# UNPACK #-} !Bytes
   | Group {-# UNPACK #-} !Bytes
+  | Filename {-# UNPACK #-} !Bytes
   | HealthCheck {-# UNPACK #-} !Bytes
   | Hostname {-# UNPACK #-} !Bytes
   | IncidentSerialNumber {-# UNPACK #-} !Word64
@@ -972,6 +978,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
         let !atom = QueryTypeValue val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
+    G.H_checksum -> case zequal8 arr off 'c' 'h' 'e' 'c' 'k' 's' 'u' 'm' of
+      0# -> do
+        val <- Latin.hexWord32 InvalidChecksum
+        let !atom = Checksum val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_tunnelip -> case zequal8 arr off 't' 'u' 'n' 'n' 'e' 'l' 'i' 'p' of
       -- Sometimes tunnelip is: N/A. In this case, we omit it.
       0# -> Latin.trySatisfy (== 'N') >>= \case
@@ -1023,6 +1035,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       0# -> do
         val <- asciiTextField InvalidHostname
         let !atom = Hostname val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    G.H_filename -> case zequal8 arr off 'f' 'i' 'l' 'e' 'n' 'a' 'm' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidFilename
+        let !atom = Filename val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     G.H_craction -> case zequal8 arr off 'c' 'r' 'a' 'c' 't' 'i' 'o' 'n' of
@@ -1242,6 +1260,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       0# -> do
         val <- asciiTextField InvalidTunnelType
         let !atom = TunnelType val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    G.H_cdrcontent -> case zequal10 arr off 'c' 'd' 'r' 'c' 'o' 'n' 't' 'e' 'n' 't' of
+      0# -> do
+        val <- asciiTextField InvalidCdrContent
+        let !atom = CdrContent val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     G.H_authserver -> case zequal10 arr off 'a' 'u' 't' 'h' 's' 'e' 'r' 'v' 'e' 'r' of

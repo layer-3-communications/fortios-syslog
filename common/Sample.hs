@@ -3,6 +3,7 @@
 module Sample
   ( traffic_local_A
   , traffic_local_B
+  , traffic_system_A
   , traffic_forward_A
   , traffic_forward_B
   , traffic_forward_C
@@ -308,4 +309,14 @@ traffic_forward_J = pack $ concat
   , "srchwversion=\"Workstation pro\" srcswversion=\"8.1\" "
   , "unauthuser=\"administrator\" unauthusersource=\"kerberos\" "
   , "mastersrcmac=\"01:50:06:95:6e:ef\" srcmac=\"f0:43:56:94:0e:ef\" srcserver=0"
+  ]
+
+traffic_system_A :: Bytes
+traffic_system_A = pack $ concat
+  [ "<190>timestamp=1708624605 devname=\"FCTEMS0000000001\" "
+  , "devid=\"FCTEMS0000000001\" vd=\"default\" itime=1708624605 "
+  , "fctsn=\"FCT8000233241457\" date=\"2024-02-22\" time=\"12:56:45\" "
+  , "logver=1 id=96900 type=\"traffic\" subtype=\"system\" "
+  , "eventtype=\"traffic\" level=\"info\" uid=\"658D8A8D5F13405E2DE15A8464961D4B\" "
+  , "hostname=\"EXAMPLEHOST\" pcdomain=\"example.com\" deviceip=192.0.2.117"
   ]

@@ -61,10 +61,16 @@ data DecodeException
   = ExpectedDate
   | ExpectedDeviceId
   | ExpectedDeviceName
-  | ExpectedEventTime
-  | ExpectedFieldsAfterDeviceId
-  | ExpectedLogId
+  | ExpectedId
   | ExpectedLogVer
+  | ExpectedEventTime
+  | ExpectedFctsn
+  | ExpectedFieldsAfterDeviceId
+  | ExpectedITime
+  | ExpectedLeadingChar
+  | ExpectedLogId
+  | ExpectedQuoteAfterDate
+  | ExpectedQuoteAfterTime
   | ExpectedSlotId
   | ExpectedSpace
   | ExpectedSpaceAfterDeviceId
@@ -381,6 +387,85 @@ decode b = case P.parseBytes fullParser b of
   P.Failure e -> Left e
   P.Success (P.Slice _ _ x) -> Right x
 
+finishModeA :: Parser DecodeException s Log
+finishModeA = do
+  P.cstring ExpectedTimestamp (Ptr "timestamp="#)
+  Latin.skipDigits1 ExpectedLogVer
+  Latin.char ExpectedLogVer ' '
+  Latin.any ExpectedLogVer >>= \case
+    't' -> do
+      Latin.char3 ExpectedTz 'z' '=' '"'
+      _ <- P.takeTrailedBy ExpectedTz 0x22
+      Latin.char2 ExpectedDeviceName ' ' 'd'
+    'd' -> pure ()
+    _ -> P.fail ExpectedTzOrDeviceName
+  Latin.char7 ExpectedDeviceName 'e' 'v' 'n' 'a' 'm' 'e' '='
+  deviceName <- asciiTextField InvalidDeviceName
+  Latin.char5 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i'
+  deviceId <- Latin.any ExpectedDeviceId >>= \case
+    'd' -> do
+      Latin.char ExpectedDeviceId '='
+      asciiTextField InvalidDeviceId
+    'c' -> do
+      Latin.char5 ExpectedDeviceId 'e' '_' 'i' 'd' '='
+      asciiTextField InvalidDeviceId
+    _ -> P.fail ExpectedDeviceId
+  Latin.char5 ExpectedVd ' ' 'v' 'd' '=' '"'
+  _ <- P.takeTrailedBy ExpectedVd 0x22
+  Latin.char ExpectedVd ' '
+  Latin.trySatisfy (=='i') >>= \case
+    True -> do
+      P.cstring ExpectedITime (Ptr "time="#)
+      Latin.skipDigits1 ExpectedITime
+      Latin.char ExpectedITime ' '
+      P.cstring ExpectedFctsn (Ptr "fctsn=\""#)
+      _ <- P.takeTrailedBy ExpectedFctsn 0x22
+      Latin.char ExpectedITime ' '
+    False -> pure ()
+  Datetime date time <- takeDateAndTime
+  Latin.char ExpectedTime ' '
+  Latin.trySatisfy (=='s') >>= \case
+    True -> do
+      P.cstring ExpectedEventTime (Ptr "lot="#)
+      Latin.skipDigits1 ExpectedSlotId
+      Latin.char ExpectedSlotId ' '
+    False -> pure ()
+  Latin.trySatisfy (=='e') >>= \case
+    True -> do
+      P.cstring ExpectedEventTime (Ptr "venttime="#)
+      Latin.skipDigits1 ExpectedEventTime
+      P.cstring ExpectedTz (Ptr " tz="#)
+      _ <- P.takeTrailedBy ExpectedTz (c2w ' ')
+      pure ()
+    False -> pure ()
+  Latin.char3 ExpectedLogId 'l' 'o' 'g'
+  logId <- Latin.any ExpectedLogId >>= \case
+    '_' -> do
+      Latin.char3 ExpectedLogId 'i' 'd' '='
+      asciiTextField InvalidLogId
+    'i' -> do
+      Latin.char2 ExpectedLogId 'd' '='
+      asciiTextField InvalidLogId
+    'v' -> do
+      Latin.char3 ExpectedLogVer 'e' 'r' '='
+      _ <- asciiTextField ExpectedLogVer
+      Latin.char4 ExpectedId ' ' 'i' 'd' '='
+      Latin.skipDigits1 ExpectedId
+      b <- Unsafe.expose
+      pure (Bytes b 0 0)
+    _ -> P.fail ExpectedLogId
+  Latin.char6 ExpectedType ' ' 't' 'y' 'p' 'e' '='
+  type_ <- asciiTextField InvalidType
+  Latin.char9 ExpectedSubtype ' ' 's' 'u' 'b' 't' 'y' 'p' 'e' '='
+  subtype <- asciiTextField InvalidSubtype
+  fields <- fieldsParser =<< P.effect Builder.new
+  pure Log
+    { deviceName, deviceId, logId, type_, subtype
+    , fields
+    , date = date
+    , time = time
+    }
+
 fullParser :: Parser DecodeException s Log
 fullParser = do
   -- If the caret-surrounded syslog priority is present, ignore it.
@@ -391,71 +476,14 @@ fullParser = do
     False -> pure ()
   -- Skip any leading space or any space after the syslog priority.
   Latin.skipChar ' '
-  Latin.trySatisfy (=='l') >>= \case
-    True -> do
-      Latin.char6 ExpectedLogVer 'o' 'g' 'v' 'e' 'r' '='
-      Latin.skipDigits1 ExpectedLogVer
-      P.cstring ExpectedTimestamp (Ptr " timestamp="#)
+  Latin.peek' ExpectedLeadingChar >>= \case
+    'l' -> do
+      Latin.char7 ExpectedLogVer 'l' 'o' 'g' 'v' 'e' 'r' '='
       Latin.skipDigits1 ExpectedLogVer
       Latin.char ExpectedLogVer ' '
-      Latin.any ExpectedLogVer >>= \case
-        't' -> do
-          Latin.char3 ExpectedTz 'z' '=' '"'
-          _ <- P.takeTrailedBy ExpectedTz 0x22
-          Latin.char2 ExpectedDeviceName ' ' 'd'
-        'd' -> pure ()
-        _ -> P.fail ExpectedTzOrDeviceName
-      Latin.char7 ExpectedDeviceName 'e' 'v' 'n' 'a' 'm' 'e' '='
-      deviceName <- asciiTextField InvalidDeviceName
-      Latin.char5 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i'
-      deviceId <- Latin.any ExpectedDeviceId >>= \case
-        'd' -> do
-          Latin.char ExpectedDeviceId '='
-          asciiTextField InvalidDeviceId
-        'c' -> do
-          Latin.char5 ExpectedDeviceId 'e' '_' 'i' 'd' '='
-          asciiTextField InvalidDeviceId
-        _ -> P.fail ExpectedDeviceId
-      Latin.char5 ExpectedVd ' ' 'v' 'd' '=' '"'
-      _ <- P.takeTrailedBy ExpectedVd 0x22
-      Latin.char ExpectedVd ' '
-      Datetime date time <- takeDateAndTime
-      Latin.char ExpectedTime ' '
-      Latin.trySatisfy (=='s') >>= \case
-        True -> do
-          P.cstring ExpectedEventTime (Ptr "lot="#)
-          Latin.skipDigits1 ExpectedSlotId
-          Latin.char ExpectedSlotId ' '
-        False -> pure ()
-      Latin.trySatisfy (=='e') >>= \case
-        True -> do
-          P.cstring ExpectedEventTime (Ptr "venttime="#)
-          Latin.skipDigits1 ExpectedEventTime
-          P.cstring ExpectedTz (Ptr " tz="#)
-          _ <- P.takeTrailedBy ExpectedTz (c2w ' ')
-          pure ()
-        False -> pure ()
-      Latin.char3 ExpectedLogId 'l' 'o' 'g'
-      logId <- Latin.any ExpectedLogId >>= \case
-        '_' -> do
-          Latin.char3 ExpectedLogId 'i' 'd' '='
-          asciiTextField InvalidLogId
-        'i' -> do
-          Latin.char2 ExpectedLogId 'd' '='
-          asciiTextField InvalidLogId
-        _ -> P.fail ExpectedLogId
-      Latin.char6 ExpectedType ' ' 't' 'y' 'p' 'e' '='
-      type_ <- asciiTextField InvalidType
-      Latin.char9 ExpectedSubtype ' ' 's' 'u' 'b' 't' 'y' 'p' 'e' '='
-      subtype <- asciiTextField InvalidSubtype
-      fields <- fieldsParser =<< P.effect Builder.new
-      pure Log
-        { deviceName, deviceId, logId, type_, subtype
-        , fields
-        , date = date
-        , time = time
-        }
-    False -> do
+      finishModeA
+    't' -> finishModeA
+    _ -> do
       Datetime date time <- takeDateAndTime
       Latin.char9 ExpectedDeviceName ' ' 'd' 'e' 'v' 'n' 'a' 'm' 'e' '='
       deviceName <- asciiTextField InvalidDeviceName
@@ -504,18 +532,22 @@ fullParser = do
 takeDateAndTime :: Parser DecodeException s Datetime
 takeDateAndTime = do
   Latin.char5 ExpectedDate 'd' 'a' 't' 'e' '='
+  dateHasLeadingDoubleQuote <- Latin.trySatisfy (=='"')
   year <- Latin.decWord InvalidDate
   Latin.char InvalidDate '-'
   month' <- Latin.decWord InvalidDate
   let !month = month' - 1
   Latin.char InvalidDate '-'
   day <- Latin.decWord InvalidDate
+  when dateHasLeadingDoubleQuote (Latin.char ExpectedQuoteAfterDate '"')
   Latin.char6 ExpectedTime ' ' 't' 'i' 'm' 'e' '='
+  timeHasLeadingDoubleQuote <- Latin.trySatisfy (=='"')
   hour <- Latin.decWord InvalidTime
   Latin.char InvalidTime ':'
   minute <- Latin.decWord InvalidTime
   Latin.char InvalidTime ':'
   sec <- Latin.decWord InvalidTime
+  when timeHasLeadingDoubleQuote (Latin.char ExpectedQuoteAfterTime '"')
   if month < 12
     then do
       let date = Date

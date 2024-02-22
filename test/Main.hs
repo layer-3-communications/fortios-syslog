@@ -37,6 +37,8 @@ main = do
   testTrafficForwardI
   putStrLn "traffic_forward_J"
   testTrafficForwardJ
+  putStrLn "traffic_system_A"
+  testTrafficSystemA
   putStrLn "event_wireless_A"
   testEventWirelessA
   putStrLn "utm_webfilter_A"
@@ -209,6 +211,13 @@ testTrafficForwardJ = case FGT.decode S.traffic_forward_J of
           when (port /= 54519) (fail "wrong transport")
         _ -> pure ()
       )
+
+testTrafficSystemA :: IO ()
+testTrafficSystemA = case FGT.decode S.traffic_system_A of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "system")
+      (fail "wrong subtype")
 
 testEventWirelessA :: IO ()
 testEventWirelessA = case FGT.decode S.event_wireless_A of

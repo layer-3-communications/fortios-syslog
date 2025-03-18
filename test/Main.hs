@@ -53,6 +53,8 @@ main = do
   testEventSystemA WithPriority
   putStrLn "event_system_A:no-priority"
   testEventSystemA WithoutPriority
+  putStrLn "event_user_A"
+  testEventUserA
   pure ()
 
 data Priority = WithPriority | WithoutPriority
@@ -281,6 +283,12 @@ testUtmWebfilterD = case FGT.decode S.utm_webfilter_D of
   Left e -> fail (show e)
   Right x -> do
     when (FGT.subtype x /= str "webfilter") (fail "wrong subtype")
+
+testEventUserA :: IO ()
+testEventUserA = case FGT.decode S.event_user_A of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "user") (fail "wrong subtype")
 
 testEventSystemA :: Priority -> IO ()
 testEventSystemA pri = case FGT.decode msg of

@@ -34,17 +34,18 @@ import GHC.Exts (Int(I#),Char(C#),Char#,indexCharArray#,ord#,xorI#,orI#)
 import Net.Types (IPv4,IP)
 
 import qualified Data.Builder.ST as Builder
+import qualified Data.Bytes as Bytes
 import qualified Data.Bytes.Parser as P
 import qualified Data.Bytes.Parser.Latin as Latin
 import qualified Data.Bytes.Parser.Unsafe as Unsafe
+import qualified Data.Bytes.Types
 import qualified Data.Primitive as PM
+import qualified Fortios.Generated as G
 import qualified Net.IP as IP
 import qualified Net.IPv4 as IPv4
 import qualified Net.Mac as Mac
 import qualified Net.Types
-import qualified Fortios.Generated as G
 import qualified UUID
-import qualified Data.Bytes.Types
 
 data Log = Log
   { date :: {-# UNPACK #-} !Date
@@ -485,18 +486,23 @@ fullParser = do
     't' -> finishModeA
     _ -> do
       Datetime date time <- takeDateAndTime
-      Latin.char9 ExpectedDeviceName ' ' 'd' 'e' 'v' 'n' 'a' 'm' 'e' '='
-      deviceName <- asciiTextField InvalidDeviceName
-      Latin.char5 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i'
-      deviceId <- Latin.any ExpectedDeviceId >>= \case
+      Latin.char ExpectedSpace ' '
+      (deviceName, deviceId) <- Latin.peek' ExpectedDeviceName >>= \case
         'd' -> do
-          Latin.char ExpectedDeviceId '='
-          asciiTextField InvalidDeviceId
-        'c' -> do
-          Latin.char5 ExpectedDeviceId 'e' '_' 'i' 'd' '='
-          asciiTextField InvalidDeviceId
-        _ -> P.fail ExpectedDeviceId
-      Latin.char ExpectedSpaceAfterDeviceId ' '
+          Latin.char8 ExpectedDeviceName 'd' 'e' 'v' 'n' 'a' 'm' 'e' '='
+          deviceName <- asciiTextField InvalidDeviceName
+          Latin.char5 ExpectedDeviceId ' ' 'd' 'e' 'v' 'i'
+          deviceId <- Latin.any ExpectedDeviceId >>= \case
+            'd' -> do
+              Latin.char ExpectedDeviceId '='
+              asciiTextField InvalidDeviceId
+            'c' -> do
+              Latin.char5 ExpectedDeviceId 'e' '_' 'i' 'd' '='
+              asciiTextField InvalidDeviceId
+            _ -> P.fail ExpectedDeviceId
+          Latin.char ExpectedSpaceAfterDeviceId ' '
+          pure (deviceName, deviceId)
+        _ -> pure (Bytes.empty, Bytes.empty)
       Latin.any ExpectedFieldsAfterDeviceId >>= \case
         -- This is a hack, and it causes us to lose the eventtime and tz, but
         -- these are somewhat low-value fields anyway. 

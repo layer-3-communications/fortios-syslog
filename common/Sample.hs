@@ -19,6 +19,7 @@ module Sample
   , utm_webfilter_C
   , utm_webfilter_D
   , event_system_A
+  , event_user_A
   , event_wireless_A
   ) where
 
@@ -225,6 +226,16 @@ event_system_A = pack $ concat
   , "logdesc=\"DHCP Ack log\" interface=\"vlan-11-trust\" dhcp_msg=\"Ack\" "
   , "mac=D1:1F:B1:41:FB:1F ip=192.0.2.97 lease=3600 hostname=\"SomeHost\" "
   , "msg=\"DHCP server sends a DHCPACK\""
+  ]
+
+event_user_A :: Bytes
+event_user_A = pack $ concat
+  [ "date=2025-03-16 time=00:27:41 eventtime=1742099261387256780 "
+  , "tz=\"-0400\" logid=\"0102043040\" type=\"event\" subtype=\"user\" "
+  , "level=\"notice\" vd=\"root\" logdesc=\"Authentication logout\" "
+  , "srcip=192.0.2.254 user=\"host/foo.example.com\" "
+  , "authserver=\"Radius01\" action=\"auth-logout\" status=\"logout\" "
+  , "msg=\"User host/foo.example.com removed from auth logon\""
   ]
 
 traffic_forward_G :: Bytes

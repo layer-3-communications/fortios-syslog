@@ -15,6 +15,8 @@ main = do
   putStrLn "Start"
   putStrLn "traffic_local_A"
   testTrafficLocalA
+  putStrLn "traffic_local_A_semistructured"
+  testTrafficLocalA_semistructured
   putStrLn "traffic_local_B"
   testTrafficLocalB
   putStrLn "traffic_forward_A"
@@ -79,6 +81,24 @@ testTrafficLocalA = case FGT.decode S.traffic_local_A of
           when (v /= IP.ipv4 192 0 2 12) (fail "wrong srcip")
         _ -> pure ()
       )
+
+testTrafficLocalA_semistructured :: IO ()
+testTrafficLocalA_semistructured = case FGT.decodeSemistructured S.traffic_local_A of
+  Left e -> fail (show e)
+  Right xs -> for_ xs $ \x -> case x of
+    FGT.Type v ->
+      when (v /= str "traffic") (fail "wrong type")
+    FGT.DeviceId v ->
+      when (v /= str "FGT-Device") (fail "wrong device id")
+    FGT.ClientReputationLevel v ->
+      when (v /= str "high") (fail "wrong crlevel")
+    FGT.SessionId v ->
+      when (v /= 69597381) (fail "wrong sessionid")
+    FGT.DestinationCountry v ->
+      when (v /= str "United States") (fail "wrong dstcountry")
+    FGT.SourceIp v ->
+      when (v /= IP.ipv4 192 0 2 12) (fail "wrong srcip")
+    _ -> pure ()
 
 testTrafficLocalB :: IO ()
 testTrafficLocalB = case FGT.decode S.traffic_local_B of

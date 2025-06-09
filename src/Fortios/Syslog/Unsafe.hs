@@ -15,9 +15,10 @@ module Fortios.Syslog.Unsafe
   , afterEquals
   , fullParser
   , decode
+  , decodeSemistructured
   ) where
 
-import Chronos (Date(Date),TimeOfDay(TimeOfDay),Datetime(..))
+import Chronos (Date,TimeOfDay,Datetime(..))
 import Chronos (Month(Month),DayOfMonth(DayOfMonth),Year(Year))
 import Control.Monad (when)
 import Control.Monad.ST.Run (runIntByteArrayST)
@@ -33,6 +34,7 @@ import GHC.Exts (Int#,(+#),Ptr(Ptr))
 import GHC.Exts (Int(I#),Char(C#),Char#,indexCharArray#,ord#,xorI#,orI#)
 import Net.Types (IPv4,IP)
 
+import qualified Chronos
 import qualified Data.Builder.ST as Builder
 import qualified Data.Bytes as Bytes
 import qualified Data.Bytes.Parser as P
@@ -111,6 +113,7 @@ data DecodeException
   | InvalidDescription
   | InvalidDestinationCountry
   | InvalidDestinationDeviceCategory
+  | InvalidLogVersion
   | InvalidDestinationDeviceType
   | InvalidDestinationHost
   | InvalidDestinationInterface
@@ -262,6 +265,7 @@ data Field
   | CountApplication {-# UNPACK #-} !Word64
     -- ^ Number of App Ctrl logs associated with the session.
   | CountWeb {-# UNPACK #-} !Word64
+  | Date !Chronos.Date
   | Description {-# UNPACK #-} !Bytes
   | DestinationCountry {-# UNPACK #-} !Bytes
   | DestinationDeviceCategory {-# UNPACK #-} !Bytes
@@ -279,6 +283,7 @@ data Field
   | DestinationServer {-# UNPACK #-} !Word64
   | DestinationUuid {-# UNPACK #-} !Word128
   | DeviceCategory {-# UNPACK #-} !Bytes
+  | DeviceId {-# UNPACK #-} !Bytes
   | DeviceType {-# UNPACK #-} !Bytes
   | DhcpMessage {-# UNPACK #-} !Bytes
   | Direction {-# UNPACK #-} !Bytes
@@ -299,6 +304,8 @@ data Field
   | Level {-# UNPACK #-} !Bytes
   | LocalPort {-# UNPACK #-} !Word16
   | LogDescription {-# UNPACK #-} !Bytes
+  | LogId {-# UNPACK #-} !Bytes
+  | LogVersion {-# UNPACK #-} !Word64
   | Mac {-# UNPACK #-} !Net.Types.Mac
   | MasterDestinationMac {-# UNPACK #-} !Net.Types.Mac
   | MasterSourceMac {-# UNPACK #-} !Net.Types.Mac
@@ -359,6 +366,8 @@ data Field
   | SslAction {-# UNPACK #-} !Bytes
   | SslCertificateCommonName {-# UNPACK #-} !Bytes
   | SslCertificateIssuer {-# UNPACK #-} !Bytes
+  | Subtype {-# UNPACK #-} !Bytes
+  | Time !Chronos.TimeOfDay
   | TimeZone {-# UNPACK #-} !Int -- ^ Offset from UTC in minutes
   | TransactionId {-# UNPACK #-} !Word64 -- ^ Field is named @xid@.
   | TranslatedSource {-# UNPACK #-} !IPv4 {-# UNPACK #-} !Word16 -- ^ When @trandisp@ is @snat@
@@ -366,6 +375,7 @@ data Field
   | TunnelId {-# UNPACK #-} !Word64
   | TunnelIp {-# UNPACK #-} !IP
   | TunnelType {-# UNPACK #-} !Bytes
+  | Type {-# UNPACK #-} !Bytes
   | UnauthenticatedUser {-# UNPACK #-} !Bytes
   | UnauthenticatedUserSource {-# UNPACK #-} !Bytes
   | UtmAction {-# UNPACK #-} !Bytes
@@ -385,6 +395,11 @@ data Field
 
 decode :: Bytes -> Either DecodeException Log
 decode b = case P.parseBytes fullParser b of
+  P.Failure e -> Left e
+  P.Success (P.Slice _ _ x) -> Right x
+
+decodeSemistructured :: Bytes -> Either DecodeException (Chunks Field)
+decodeSemistructured b = case P.parseBytes semistructuredParser b of
   P.Failure e -> Left e
   P.Success (P.Slice _ _ x) -> Right x
 
@@ -467,6 +482,18 @@ finishModeA = do
     , time = time
     }
 
+semistructuredParser :: Parser DecodeException s (Chunks Field)
+semistructuredParser = do
+  -- If the caret-surrounded syslog priority is present, ignore it.
+  Latin.trySatisfy (=='<') >>= \case
+    True -> do
+      Latin.skipDigits1 InvalidSyslogPriority
+      Latin.char InvalidSyslogPriority '>'
+    False -> pure ()
+  -- Skip any leading space or any space after the syslog priority.
+  Latin.skipChar ' '
+  fieldsParserStart =<< P.effect Builder.new
+
 fullParser :: Parser DecodeException s Log
 fullParser = do
   -- If the caret-surrounded syslog priority is present, ignore it.
@@ -535,9 +562,9 @@ fullParser = do
         , time = time
         }
 
-takeDateAndTime :: Parser DecodeException s Datetime
-takeDateAndTime = do
-  Latin.char5 ExpectedDate 'd' 'a' 't' 'e' '='
+-- Value may be optionally quoted.
+parserDate :: Parser DecodeException s Date
+parserDate = do
   dateHasLeadingDoubleQuote <- Latin.trySatisfy (=='"')
   year <- Latin.decWord InvalidDate
   Latin.char InvalidDate '-'
@@ -546,7 +573,17 @@ takeDateAndTime = do
   Latin.char InvalidDate '-'
   day <- Latin.decWord InvalidDate
   when dateHasLeadingDoubleQuote (Latin.char ExpectedQuoteAfterDate '"')
-  Latin.char6 ExpectedTime ' ' 't' 'i' 'm' 'e' '='
+  if month < 12
+    then do
+      let !date = Chronos.Date
+            (Year (fromIntegral year))
+            (Month (fromIntegral month))
+            (DayOfMonth (fromIntegral day))
+      pure date
+    else P.fail InvalidDate
+
+parserTimeOfDay :: Parser DecodeException s TimeOfDay
+parserTimeOfDay = do
   timeHasLeadingDoubleQuote <- Latin.trySatisfy (=='"')
   hour <- Latin.decWord InvalidTime
   Latin.char InvalidTime ':'
@@ -554,18 +591,25 @@ takeDateAndTime = do
   Latin.char InvalidTime ':'
   sec <- Latin.decWord InvalidTime
   when timeHasLeadingDoubleQuote (Latin.char ExpectedQuoteAfterTime '"')
-  if month < 12
-    then do
-      let date = Date
-            (Year (fromIntegral year))
-            (Month (fromIntegral month))
-            (DayOfMonth (fromIntegral day))
-          time = TimeOfDay
-            (fromIntegral hour)
-            (fromIntegral minute)
-            (fromIntegral (sec * 1000000000))
-      pure Datetime{datetimeDate=date,datetimeTime=time}
-    else P.fail InvalidDate
+  let !time = Chronos.TimeOfDay
+        (fromIntegral hour)
+        (fromIntegral minute)
+        (fromIntegral (sec * 1000000000))
+  pure time
+
+takeDateAndTime :: Parser DecodeException s Datetime
+takeDateAndTime = do
+  Latin.char5 ExpectedDate 'd' 'a' 't' 'e' '='
+  date <- parserDate
+  Latin.char6 ExpectedTime ' ' 't' 'i' 'm' 'e' '='
+  time <- parserTimeOfDay
+  pure Datetime{datetimeDate=date,datetimeTime=time}
+
+fieldsParserStart :: Builder s Field -> Parser DecodeException s (Chunks Field)
+fieldsParserStart !b0 = do
+  name <- P.takeTrailedBy IncompleteKey (c2w '=')
+  !b1 <- afterEquals name b0
+  fieldsParser b1
 
 fieldsParser ::
      Builder s Field
@@ -666,6 +710,24 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   4 -> case G.hashString4 arr off of
+    G.H_date -> case zequal4 arr off 'd' 'a' 't' 'e' of
+      0# -> do
+        val <- parserDate
+        let !atom = Date val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    G.H_time -> case zequal4 arr off 't' 'i' 'm' 'e' of
+      0# -> do
+        val <- parserTimeOfDay
+        let !atom = Time val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    G.H_type -> case zequal4 arr off 't' 'y' 'p' 'e' of
+      0# -> do
+        val <- asciiTextField InvalidType
+        let !atom = Type val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_user -> case zequal4 arr off 'u' 's' 'e' 'r' of
       0# -> do
         val <- asciiTextField InvalidUser
@@ -690,6 +752,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       0# -> do
         val <- asciiTextField InvalidQueryName
         let !atom = QueryName val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
+    G.H_devid -> case zequal5 arr off 'd' 'e' 'v' 'i' 'd' of
+      0# -> do
+        val <- asciiTextField InvalidDeviceId
+        let !atom = DeviceId val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     G.H_qtype -> case zequal5 arr off 'q' 't' 'y' 'p' 'e' of
@@ -770,8 +838,20 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
         let !atom = Protocol val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
+    G.H_log_id -> case zequal5 arr off 'l' 'o' 'g' 'i' 'd' of
+      0# -> do
+        val <- escapedAsciiTextField InvalidLogId
+        let !atom = LogId val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   6 -> case G.hashString6 arr off of
+    G.H_log_id -> case zequal6 arr off 'l' 'o' 'g' '_' 'i' 'd' of
+      0# -> do
+        val <- escapedAsciiTextField InvalidLogId
+        let !atom = LogId val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_reason -> case zequal6 arr off 'r' 'e' 'a' 's' 'o' 'n' of
       0# -> do
         val <- escapedAsciiTextField InvalidReason
@@ -848,6 +928,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
         let !atom = LanOut val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
+    G.H_logver -> case zequal6 arr off 'l' 'o' 'g' 'v' 'e' 'r' of
+      0# -> do
+        val <- Latin.decWord64 InvalidLogVersion
+        let !atom = LogVersion val
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_osname -> case zequal6 arr off 'o' 's' 'n' 'a' 'm' 'e' of
       0# -> do
         val <- asciiTextField InvalidOsName
@@ -856,6 +942,12 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   7 -> case G.hashString7 arr off of
+    G.H_subtype -> case zequal7 arr off 's' 'u' 'b' 't' 'y' 'p' 'e' of
+      0# -> do
+        w <- asciiTextField InvalidSubtype
+        let !atom = Subtype w
+        P.effect (Builder.push atom b0)
+      _ -> discardUnknownField b0
     G.H_vwlname -> case zequal7 arr off 'v' 'w' 'l' 'n' 'a' 'm' 'e' of
       0# -> do
         w <- asciiTextField InvalidVirtualWanLinkName

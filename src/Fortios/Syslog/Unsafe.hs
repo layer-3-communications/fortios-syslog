@@ -1175,7 +1175,7 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     G.H_filename -> case zequal8 arr off 'f' 'i' 'l' 'e' 'n' 'a' 'm' 'e' of
       0# -> do
-        val <- asciiTextField InvalidFilename
+        val <- escapedAsciiTextField InvalidFilename
         let !atom = Filename val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0

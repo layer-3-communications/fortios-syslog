@@ -1,4 +1,5 @@
-import Gauge (bench,whnf,defaultMain)
+import Criterion (bench,whnf)
+import Criterion.Main (defaultMain)
 
 import qualified Sample as S
 import qualified Fortios.Syslog as FGT

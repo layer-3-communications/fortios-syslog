@@ -30,9 +30,18 @@ import Data.Chunks (Chunks)
 import Data.Primitive (ByteArray(..))
 import Data.WideWord (Word128,Word256)
 import Data.Word (Word8,Word16,Word32,Word64)
-import GHC.Exts (Int#,(+#),Ptr(Ptr))
+import GHC.Exts (Int#,(+#),Ptr(Ptr),xorWord32#,xor64#,word8ToWord#,xor#,word32ToWord#,or#)
+import GHC.Exts (word16ToWord#)
+import GHC.Exts (word64ToWord#)
+import GHC.Exts (indexWord8OffAddrAsWord16#)
+import GHC.Exts (indexWord8ArrayAsWord16#)
 import GHC.Exts (Int(I#),Char(C#),Char#,indexCharArray#,ord#,xorI#,orI#)
 import Net.Types (IPv4,IP)
+import Data.Primitive.ByteArray.LittleEndian (indexUnalignedByteArray)
+import GHC.Exts (Word#, Addr#)
+import GHC.Exts (indexWord8ArrayAsWord32#, indexWord8OffAddrAsWord32# )
+import GHC.Exts (indexWord8ArrayAsWord64#, indexWord8OffAddrAsWord64# )
+import GHC.Exts (indexWord8OffAddr#, indexWord8Array#)
 
 import qualified Chronos
 import qualified Data.Builder.ST as Builder
@@ -627,502 +636,413 @@ discardUnknownField !b0 = do
   _ <- asciiTextField InvalidUnknownField
   pure b0
 
+-- Precondition: There is an equals sign after the slice. That is, we can
+-- index one past the end of the slice, and it will have a well defined
+-- behavior.
 afterEquals :: Bytes -> Builder s Field -> Parser DecodeException s (Builder s Field)
 afterEquals !b !b0 = case fromIntegral @Int @Word len of
-  2 -> case G.hashString2 arr off of
-    G.H_vd -> case zequal2 arr off 'v' 'd' of
-      0# -> do
-        val <- asciiTextField InvalidVirtualDomain
-        let !atom = VirtualDomain val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_ip -> case zequal2 arr off 'i' 'p' of
-      0# -> do
-        val <- IP.parserUtf8Bytes InvalidIp
-        let !atom = Ip val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_tz -> case zequal2 arr off 't' 'z' of
-      0# -> do
-        Latin.char InvalidTimeZone '"'
-        val <- Latin.decSignedInt InvalidTimeZone
-        Latin.char InvalidTimeZone '"'
-        let !atom = TimeZone val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
+  2 -> case indexUnalignedByteArray arr off :: Word16 of
+    G.W_vd -> do
+      val <- asciiTextField InvalidVirtualDomain
+      let !atom = VirtualDomain val
+      P.effect (Builder.push atom b0)
+    G.W_ip -> do
+      val <- IP.parserUtf8Bytes InvalidIp
+      let !atom = Ip val
+      P.effect (Builder.push atom b0)
+    G.W_tz -> do
+      Latin.char InvalidTimeZone '"'
+      val <- Latin.decSignedInt InvalidTimeZone
+      Latin.char InvalidTimeZone '"'
+      let !atom = TimeZone val
+      P.effect (Builder.push atom b0)
     _ -> discardUnknownField b0
-  3 -> case G.hashString3 arr off of
-    G.H_mac -> case zequal3 arr off 'm' 'a' 'c' of
-      0# -> do
-        quoted <- Latin.trySatisfy (=='"')
-        r <- Mac.parserUtf8Bytes InvalidMac
-        when quoted (Latin.char InvalidMac '"')
-        let !atom = Mac r
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_vpn -> case zequal3 arr off 'v' 'p' 'n' of
-      0# -> do
-        val <- asciiTextField InvalidVpn
-        let !atom = Vpn val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_pri -> case zequal3 arr off 'p' 'r' 'i' of
-      0# -> do
-        val <- asciiTextField InvalidPriority
-        let !atom = Priority val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_app -> case zequal3 arr off 'a' 'p' 'p' of
-      0# -> do
-        val <- asciiTextField InvalidApp
-        let !atom = App val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_url -> case zequal3 arr off 'u' 'r' 'l' of
-      0# -> do
-        val <- asciiTextField InvalidUrl
-        let !atom = Url val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_msg -> case zequal3 arr off 'm' 's' 'g' of
-      0# -> do
-        val <- escapedAsciiTextField InvalidMessage
-        let !atom = Message val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_ref -> case zequal3 arr off 'r' 'e' 'f' of
-      0# -> do
-        val <- asciiTextField InvalidReference
-        let !atom = Reference val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_xid -> case zequal3 arr off 'x' 'i' 'd' of
-      0# -> do
-        val <- Latin.decWord64 InvalidTransactionId
-        let !atom = TransactionId val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_cat -> case zequal3 arr off 'c' 'a' 't' of
-      0# -> do
-        val <- Latin.decWord64 InvalidCategory
-        let !atom = Category val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
+  3 -> case indexUnalignedByteArray arr off :: Word32 of
+    G.W_mac -> do
+      quoted <- Latin.trySatisfy (=='"')
+      r <- Mac.parserUtf8Bytes InvalidMac
+      when quoted (Latin.char InvalidMac '"')
+      let !atom = Mac r
+      P.effect (Builder.push atom b0)
+    G.W_vpn -> do
+      val <- asciiTextField InvalidVpn
+      let !atom = Vpn val
+      P.effect (Builder.push atom b0)
+    G.W_pri -> do
+      val <- asciiTextField InvalidPriority
+      let !atom = Priority val
+      P.effect (Builder.push atom b0)
+    G.W_app -> do
+      val <- asciiTextField InvalidApp
+      let !atom = App val
+      P.effect (Builder.push atom b0)
+    G.W_url -> do
+      val <- asciiTextField InvalidUrl
+      let !atom = Url val
+      P.effect (Builder.push atom b0)
+    G.W_msg -> do
+      val <- escapedAsciiTextField InvalidMessage
+      let !atom = Message val
+      P.effect (Builder.push atom b0)
+    G.W_ref -> do
+      val <- asciiTextField InvalidReference
+      let !atom = Reference val
+      P.effect (Builder.push atom b0)
+    G.W_xid -> do
+      val <- Latin.decWord64 InvalidTransactionId
+      let !atom = TransactionId val
+      P.effect (Builder.push atom b0)
+    G.W_cat -> do
+      val <- Latin.decWord64 InvalidCategory
+      let !atom = Category val
+      P.effect (Builder.push atom b0)
     _ -> discardUnknownField b0
-  4 -> case G.hashString4 arr off of
-    G.H_date -> case zequal4 arr off 'd' 'a' 't' 'e' of
-      0# -> do
-        val <- parserDate
-        let !atom = Date val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_time -> case zequal4 arr off 't' 'i' 'm' 'e' of
-      0# -> do
-        val <- parserTimeOfDay
-        let !atom = Time val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_type -> case zequal4 arr off 't' 'y' 'p' 'e' of
-      0# -> do
-        val <- asciiTextField InvalidType
-        let !atom = Type val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_user -> case zequal4 arr off 'u' 's' 'e' 'r' of
-      0# -> do
-        val <- asciiTextField InvalidUser
-        let !atom = User val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_desc -> case zequal4 arr off 'd' 'e' 's' 'c' of
-      0# -> do
-        val <- asciiTextField InvalidDescription
-        let !atom = Description val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
+  4 -> case indexUnalignedByteArray arr off :: Word32 of
+    G.W_date -> do
+      val <- parserDate
+      let !atom = Date val
+      P.effect (Builder.push atom b0)
+    G.W_time -> do
+      val <- parserTimeOfDay
+      let !atom = Time val
+      P.effect (Builder.push atom b0)
+    G.W_type -> do
+      val <- asciiTextField InvalidType
+      let !atom = Type val
+      P.effect (Builder.push atom b0)
+    G.W_user -> do
+      val <- asciiTextField InvalidUser
+      let !atom = User val
+      P.effect (Builder.push atom b0)
+    G.W_desc -> do
+      val <- asciiTextField InvalidDescription
+      let !atom = Description val
+      P.effect (Builder.push atom b0)
     _ -> discardUnknownField b0
   5 -> case G.hashString5 arr off of
-    G.H_remip -> case zequal5 arr off 'r' 'e' 'm' 'i' 'p' of
-      0# -> do
+    G.H_remip -> case equal5 arr off "remip"# of
+      0## -> do
         val <- IP.parserUtf8Bytes InvalidRemoteIp
         let !atom = RemoteIp val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_qname -> case zequal5 arr off 'q' 'n' 'a' 'm' 'e' of
-      0# -> do
+    G.H_qname -> case equal5 arr off "qname"# of
+      0## -> do
         val <- asciiTextField InvalidQueryName
         let !atom = QueryName val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_devid -> case zequal5 arr off 'd' 'e' 'v' 'i' 'd' of
-      0# -> do
+    G.H_devid -> case equal5 arr off "devid"# of
+      0## -> do
         val <- asciiTextField InvalidDeviceId
         let !atom = DeviceId val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_qtype -> case zequal5 arr off 'q' 't' 'y' 'p' 'e' of
-      0# -> do
+    G.H_qtype -> case equal5 arr off "qtype"# of
+      0## -> do
         val <- asciiTextField InvalidQueryType
         let !atom = QueryType val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_group -> case zequal5 arr off 'g' 'r' 'o' 'u' 'p' of
-      0# -> do
+    G.H_group -> case equal5 arr off "group"# of
+      0## -> do
         val <- asciiTextField InvalidGroup
         let !atom = Group val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_alert -> case zequal5 arr off 'a' 'l' 'e' 'r' 't' of
-      0# -> do
+    G.H_alert -> case equal5 arr off "alert"# of
+      0## -> do
         val <- optQuotedDecWord64 InvalidAlert
         let !atom = Alert val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_vwlid -> case zequal5 arr off 'v' 'w' 'l' 'i' 'd' of
-      0# -> do
+    G.H_vwlid -> case equal5 arr off "vwlid"# of
+      0## -> do
         val <- Latin.decWord64 InvalidVirtualWanLinkId
         let !atom = VirtualWanLinkId val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_appid -> case zequal5 arr off 'a' 'p' 'p' 'i' 'd' of
-      0# -> do
+    G.H_appid -> case equal5 arr off "appid"# of
+      0## -> do
         val <- Latin.decWord64 InvalidApplicationId
         let !atom = ApplicationId val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_lease -> case zequal5 arr off 'l' 'e' 'a' 's' 'e' of
-      0# -> do
+    G.H_lease -> case equal5 arr off "lease"# of
+      0## -> do
         val <- Latin.decWord64 InvalidLease
         let !atom = Lease val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_wanin -> case zequal5 arr off 'w' 'a' 'n' 'i' 'n' of
-      0# -> do
+    G.H_wanin -> case equal5 arr off "wanin"# of
+      0## -> do
         val <- Latin.decWord64 InvalidWanIn
         let !atom = WanIn val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_lanin -> case zequal5 arr off 'l' 'a' 'n' 'i' 'n' of
-      0# -> do
+    G.H_lanin -> case equal5 arr off "lanin"# of
+      0## -> do
         val <- Latin.decWord64 InvalidLanIn
         let !atom = LanIn val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_srcip -> case zequal5 arr off 's' 'r' 'c' 'i' 'p' of
-      0# -> do
+    G.H_srcip -> case equal5 arr off "srcip"# of
+      0## -> do
         val <- optQuotedIp InvalidSourceIp
         let !atom = SourceIp val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_dstip -> case zequal5 arr off 'd' 's' 't' 'i' 'p' of
-      0# -> do
+    G.H_dstip -> case equal5 arr off "dstip"# of
+      0## -> do
         val <- IP.parserUtf8Bytes InvalidDestinationIp
         let !atom = DestinationIp val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_level -> case zequal5 arr off 'l' 'e' 'v' 'e' 'l' of
-      0# -> do
+    G.H_level -> case equal5 arr off "level"# of
+      0## -> do
         val <- asciiTextField InvalidLevel
         let !atom = Level val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_error -> case zequal5 arr off 'e' 'r' 'r' 'o' 'r' of
-      0# -> do
+    G.H_error -> case equal5 arr off "error"# of
+      0## -> do
         val <- asciiTextField InvalidError
         let !atom = Level val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_proto -> case zequal5 arr off 'p' 'r' 'o' 't' 'o' of
-      0# -> do
+    G.H_proto -> case equal5 arr off "proto"# of
+      0## -> do
         val <- Latin.decWord8 InvalidProtocol
         let !atom = Protocol val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_log_id -> case zequal5 arr off 'l' 'o' 'g' 'i' 'd' of
-      0# -> do
+    G.H_log_id -> case equal5 arr off "logid"# of
+      0## -> do
         val <- escapedAsciiTextField InvalidLogId
         let !atom = LogId val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
   6 -> case G.hashString6 arr off of
-    G.H_log_id -> case zequal6 arr off 'l' 'o' 'g' '_' 'i' 'd' of
-      0# -> do
+    G.H_log_id -> case equal6 arr off "log_id"# of
+      0## -> do
         val <- escapedAsciiTextField InvalidLogId
         let !atom = LogId val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_reason -> case zequal6 arr off 'r' 'e' 'a' 's' 'o' 'n' of
-      0# -> do
+    G.H_reason -> case equal6 arr off "reason"# of
+      0## -> do
         val <- escapedAsciiTextField InvalidReason
         let !atom = Reason val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_qclass -> case zequal6 arr off 'q' 'c' 'l' 'a' 's' 's' of
-      0# -> do
+    G.H_qclass -> case equal6 arr off "qclass"# of
+      0## -> do
         val <- asciiTextField InvalidQueryClass
         let !atom = QueryClass val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_dstmac -> case zequal6 arr off 'd' 's' 't' 'm' 'a' 'c' of
-      0# -> do
+    G.H_dstmac -> case equal6 arr off "dstmac"# of
+      0## -> do
         quoted <- Latin.trySatisfy (=='"')
         r <- Mac.parserUtf8Bytes InvalidDestinationMac
         when quoted (Latin.char InvalidDestinationMac '"')
         let !atom = DestinationMac r
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_srcmac -> case zequal6 arr off 's' 'r' 'c' 'm' 'a' 'c' of
-      0# -> do
+    G.H_srcmac -> case equal6 arr off "srcmac"# of
+      0## -> do
         quoted <- Latin.trySatisfy (=='"')
         r <- Mac.parserUtf8Bytes InvalidSourceMac
         when quoted (Latin.char InvalidSourceMac '"')
         let !atom = SourceMac r
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_appact -> case zequal6 arr off 'a' 'p' 'p' 'a' 'c' 't' of
-      0# -> do
+    G.H_appact -> case equal6 arr off "appact"# of
+      0## -> do
         val <- asciiTextField InvalidApplicationAction
         let !atom = ApplicationAction val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_appcat -> case zequal6 arr off 'a' 'p' 'p' 'c' 'a' 't' of
-      0# -> do
+    G.H_appcat -> case equal6 arr off "appcat"# of
+      0## -> do
         val <- asciiTextField InvalidApplicationCategory
         let !atom = ApplicationCategory val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_attack -> case zequal6 arr off 'a' 't' 't' 'a' 'c' 'k' of
-      0# -> do
+    G.H_attack -> case equal6 arr off "attack"# of
+      0## -> do
         val <- asciiTextField InvalidAttack
         let !atom = Attack val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_action -> case zequal6 arr off 'a' 'c' 't' 'i' 'o' 'n' of
-      0# -> do
+    G.H_action -> case equal6 arr off "action"# of
+      0## -> do
         val <- asciiTextField InvalidAction
         let !atom = Action val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_member -> case zequal6 arr off 'm' 'e' 'm' 'b' 'e' 'r' of
-      0# -> do
+    G.H_member -> case equal6 arr off "member"# of
+      0## -> do
         val <- asciiTextField InvalidMember
         let !atom = Member val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_method -> case zequal6 arr off 'm' 'e' 't' 'h' 'o' 'd' of
-      0# -> do
+    G.H_method -> case equal6 arr off "method"# of
+      0## -> do
         val <- asciiTextField InvalidMethod
         let !atom = Method val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_wanout -> case zequal6 arr off 'w' 'a' 'n' 'o' 'u' 't' of
-      0# -> do
+    G.H_wanout -> case equal6 arr off "wanout"# of
+      0## -> do
         val <- Latin.decWord64 InvalidWanOut
         let !atom = WanOut val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_lanout -> case zequal6 arr off 'l' 'a' 'n' 'o' 'u' 't' of
-      0# -> do
+    G.H_lanout -> case equal6 arr off "lanout"# of
+      0## -> do
         val <- Latin.decWord64 InvalidLanOut
         let !atom = LanOut val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_logver -> case zequal6 arr off 'l' 'o' 'g' 'v' 'e' 'r' of
-      0# -> do
+    G.H_logver -> case equal6 arr off "logver"# of
+      0## -> do
         val <- Latin.decWord64 InvalidLogVersion
         let !atom = LogVersion val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_osname -> case zequal6 arr off 'o' 's' 'n' 'a' 'm' 'e' of
-      0# -> do
+    G.H_osname -> case equal6 arr off "osname"# of
+      0## -> do
         val <- asciiTextField InvalidOsName
         let !atom = OsName val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     _ -> discardUnknownField b0
-  7 -> case G.hashString7 arr off of
-    G.H_subtype -> case zequal7 arr off 's' 'u' 'b' 't' 'y' 'p' 'e' of
-      0# -> do
-        w <- asciiTextField InvalidSubtype
-        let !atom = Subtype w
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_vwlname -> case zequal7 arr off 'v' 'w' 'l' 'n' 'a' 'm' 'e' of
-      0# -> do
-        w <- asciiTextField InvalidVirtualWanLinkName
-        let !atom = VirtualWanLinkName w
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_srcuuid -> case zequal7 arr off 's' 'r' 'c' 'u' 'u' 'i' 'd' of
-      0# -> do
-        w <- uuidField InvalidSourceUuid
-        let !atom = SourceUuid w
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_dstuuid -> case zequal7 arr off 'd' 's' 't' 'u' 'u' 'i' 'd' of
-      0# -> do
-        w <- uuidField InvalidDestinationUuid
-        let !atom = DestinationUuid w
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_poluuid -> case zequal7 arr off 'p' 'o' 'l' 'u' 'u' 'i' 'd' of
-      0# -> do
-        w <- uuidField InvalidPolicyUuid
-        let !atom = PolicyUuid w
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_vpntype -> case zequal7 arr off 'v' 'p' 'n' 't' 'y' 'p' 'e' of
-      0# -> do
-        val <- asciiTextField InvalidVpnType
-        let !atom = VpnType val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_devtype -> case zequal7 arr off 'd' 'e' 'v' 't' 'y' 'p' 'e' of
-      0# -> do
-        val <- asciiTextField InvalidDeviceType
-        let !atom = DeviceType val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_srcname -> case zequal7 arr off 's' 'r' 'c' 'n' 'a' 'm' 'e' of
-      0# -> do
-        val <- asciiTextField InvalidSourceName
-        let !atom = SourceName val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_applist -> case zequal7 arr off 'a' 'p' 'p' 'l' 'i' 's' 't' of
-      0# -> do
-        val <- asciiTextField InvalidApplicationList
-        let !atom = ApplicationList val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_apprisk -> case zequal7 arr off 'a' 'p' 'p' 'r' 'i' 's' 'k' of
-      0# -> do
-        val <- asciiTextField InvalidApplicationRisk
-        let !atom = ApplicationRisk val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_logdesc -> case zequal7 arr off 'l' 'o' 'g' 'd' 'e' 's' 'c' of
-      0# -> do
-        val <- asciiTextField InvalidLogDescription
-        let !atom = LogDescription val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_reqtype -> case zequal7 arr off 'r' 'e' 'q' 't' 'y' 'p' 'e' of
-      0# -> do
-        val <- asciiTextField InvalidRequestType
-        let !atom = RequestType val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_crscore -> case zequal7 arr off 'c' 'r' 's' 'c' 'o' 'r' 'e' of
-      0# -> do
-        val <- Latin.decWord64 InvalidClientReputationScore
-        let !atom = ClientReputationScore val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_crlevel -> case zequal7 arr off 'c' 'r' 'l' 'e' 'v' 'e' 'l' of
-      0# -> do
-        val <- asciiTextField InvalidClientReputationLevel
-        let !atom = ClientReputationLevel val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_catdesc -> case zequal7 arr off 'c' 'a' 't' 'd' 'e' 's' 'c' of
-      0# -> do
-        val <- asciiTextField InvalidCategoryDescription
-        let !atom = CategoryDescription val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_srcintf -> case zequal7 arr off 's' 'r' 'c' 'i' 'n' 't' 'f' of
-      0# -> do
-        val <- asciiTextField InvalidSourceInterface
-        let !atom = SourceInterface val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_dstintf -> case zequal7 arr off 'd' 's' 't' 'i' 'n' 't' 'f' of
-      0# -> do
-        val <- asciiTextField InvalidDestinationInterface
-        let !atom = DestinationInterface val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_locport -> case zequal7 arr off 'l' 'o' 'c' 'p' 'o' 'r' 't' of
-      0# -> do
-        val <- Latin.decWord16 InvalidLocalPort
-        let !atom = LocalPort val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_remport -> case zequal7 arr off 'r' 'e' 'm' 'p' 'o' 'r' 't' of
-      0# -> do
-        val <- Latin.decWord16 InvalidRemotePort
-        let !atom = RemotePort val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_srcport -> case zequal7 arr off 's' 'r' 'c' 'p' 'o' 'r' 't' of
-      0# -> do
-        val <- Latin.decWord16 InvalidSourcePort
-        let !atom = SourcePort val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_dstport -> case zequal7 arr off 'd' 's' 't' 'p' 'o' 'r' 't' of
-      0# -> do
-        val <- Latin.decWord16 InvalidDestinationPort
-        let !atom = DestinationPort val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_service -> case zequal7 arr off 's' 'e' 'r' 'v' 'i' 'c' 'e' of
-      0# -> do
-        val <- asciiTextField InvalidService
-        let !atom = Service val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_sentpkt -> case zequal7 arr off 's' 'e' 'n' 't' 'p' 'k' 't' of
-      0# -> do
-        val <- Latin.decWord64 InvalidSentPackets
-        let !atom = SentPackets val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_rcvdpkt -> case zequal7 arr off 'r' 'c' 'v' 'd' 'p' 'k' 't' of
-      0# -> do
-        val <- Latin.decWord64 InvalidReceivedPackets
-        let !atom = ReceivedPackets val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_profile -> case zequal7 arr off 'p' 'r' 'o' 'f' 'i' 'l' 'e' of
-      0# -> do
-        val <- asciiTextField InvalidProfile
-        let !atom = Profile val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
+  7 -> case indexUnalignedByteArray arr off :: Word64 of
+    G.W_subtype -> do
+      w <- asciiTextField InvalidSubtype
+      let !atom = Subtype w
+      P.effect (Builder.push atom b0)
+    G.W_vwlname -> do
+      w <- asciiTextField InvalidVirtualWanLinkName
+      let !atom = VirtualWanLinkName w
+      P.effect (Builder.push atom b0)
+    G.W_srcuuid -> do
+      w <- uuidField InvalidSourceUuid
+      let !atom = SourceUuid w
+      P.effect (Builder.push atom b0)
+    G.W_dstuuid -> do
+      w <- uuidField InvalidDestinationUuid
+      let !atom = DestinationUuid w
+      P.effect (Builder.push atom b0)
+    G.W_poluuid -> do
+      w <- uuidField InvalidPolicyUuid
+      let !atom = PolicyUuid w
+      P.effect (Builder.push atom b0)
+    G.W_vpntype -> do
+      val <- asciiTextField InvalidVpnType
+      let !atom = VpnType val
+      P.effect (Builder.push atom b0)
+    G.W_devtype -> do
+      val <- asciiTextField InvalidDeviceType
+      let !atom = DeviceType val
+      P.effect (Builder.push atom b0)
+    G.W_srcname -> do
+      val <- asciiTextField InvalidSourceName
+      let !atom = SourceName val
+      P.effect (Builder.push atom b0)
+    G.W_applist -> do
+      val <- asciiTextField InvalidApplicationList
+      let !atom = ApplicationList val
+      P.effect (Builder.push atom b0)
+    G.W_apprisk -> do
+      val <- asciiTextField InvalidApplicationRisk
+      let !atom = ApplicationRisk val
+      P.effect (Builder.push atom b0)
+    G.W_logdesc -> do
+      val <- asciiTextField InvalidLogDescription
+      let !atom = LogDescription val
+      P.effect (Builder.push atom b0)
+    G.W_reqtype -> do
+      val <- asciiTextField InvalidRequestType
+      let !atom = RequestType val
+      P.effect (Builder.push atom b0)
+    G.W_crscore -> do
+      val <- Latin.decWord64 InvalidClientReputationScore
+      let !atom = ClientReputationScore val
+      P.effect (Builder.push atom b0)
+    G.W_crlevel -> do
+      val <- asciiTextField InvalidClientReputationLevel
+      let !atom = ClientReputationLevel val
+      P.effect (Builder.push atom b0)
+    G.W_catdesc -> do
+      val <- asciiTextField InvalidCategoryDescription
+      let !atom = CategoryDescription val
+      P.effect (Builder.push atom b0)
+    G.W_srcintf -> do
+      val <- asciiTextField InvalidSourceInterface
+      let !atom = SourceInterface val
+      P.effect (Builder.push atom b0)
+    G.W_dstintf -> do
+      val <- asciiTextField InvalidDestinationInterface
+      let !atom = DestinationInterface val
+      P.effect (Builder.push atom b0)
+    G.W_locport -> do
+      val <- Latin.decWord16 InvalidLocalPort
+      let !atom = LocalPort val
+      P.effect (Builder.push atom b0)
+    G.W_remport -> do
+      val <- Latin.decWord16 InvalidRemotePort
+      let !atom = RemotePort val
+      P.effect (Builder.push atom b0)
+    G.W_srcport -> do
+      val <- Latin.decWord16 InvalidSourcePort
+      let !atom = SourcePort val
+      P.effect (Builder.push atom b0)
+    G.W_dstport -> do
+      val <- Latin.decWord16 InvalidDestinationPort
+      let !atom = DestinationPort val
+      P.effect (Builder.push atom b0)
+    G.W_service -> do
+      val <- asciiTextField InvalidService
+      let !atom = Service val
+      P.effect (Builder.push atom b0)
+    G.W_sentpkt -> do
+      val <- Latin.decWord64 InvalidSentPackets
+      let !atom = SentPackets val
+      P.effect (Builder.push atom b0)
+    G.W_rcvdpkt -> do
+      val <- Latin.decWord64 InvalidReceivedPackets
+      let !atom = ReceivedPackets val
+      P.effect (Builder.push atom b0)
+    G.W_profile -> do
+      val <- asciiTextField InvalidProfile
+      let !atom = Profile val
+      P.effect (Builder.push atom b0)
     _ -> discardUnknownField b0
-  8 -> case G.hashString8 arr off of
-    G.H_oldvalue -> case zequal8 arr off 'o' 'l' 'd' 'v' 'a' 'l' 'u' 'e' of
-      0# -> do
-        val <- asciiTextField InvalidOldValue
-        let !atom = OldValue val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_newvalue -> case zequal8 arr off 'n' 'e' 'w' 'v' 'a' 'l' 'u' 'e' of
-      0# -> do
-        val <- asciiTextField InvalidNewValue
-        let !atom = NewValue val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_qtypeval -> case zequal8 arr off 'q' 't' 'y' 'p' 'e' 'v' 'a' 'l' of
-      0# -> do
-        val <- Latin.decWord64 InvalidQueryTypeValue
-        let !atom = QueryTypeValue val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_checksum -> case zequal8 arr off 'c' 'h' 'e' 'c' 'k' 's' 'u' 'm' of
-      0# -> do
-        quoted <- Latin.trySatisfy (=='"')
-        val <- Latin.hexFixedWord32 InvalidChecksum
-        when quoted (Latin.char InvalidMasterSourceMac '"')
-        let !atom = Checksum val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_tunnelip -> case zequal8 arr off 't' 'u' 'n' 'n' 'e' 'l' 'i' 'p' of
+  8 -> case indexUnalignedByteArray arr off :: Word64 of
+    G.W_oldvalue -> do
+      val <- asciiTextField InvalidOldValue
+      let !atom = OldValue val
+      P.effect (Builder.push atom b0)
+    G.W_newvalue -> do
+      val <- asciiTextField InvalidNewValue
+      let !atom = NewValue val
+      P.effect (Builder.push atom b0)
+    G.W_qtypeval -> do
+      val <- Latin.decWord64 InvalidQueryTypeValue
+      let !atom = QueryTypeValue val
+      P.effect (Builder.push atom b0)
+    G.W_checksum -> do
+      quoted <- Latin.trySatisfy (=='"')
+      val <- Latin.hexFixedWord32 InvalidChecksum
+      when quoted (Latin.char InvalidMasterSourceMac '"')
+      let !atom = Checksum val
+      P.effect (Builder.push atom b0)
+    G.W_tunnelip -> do
       -- Sometimes tunnelip is: N/A. In this case, we omit it.
-      0# -> Latin.trySatisfy (== 'N') >>= \case
+      Latin.trySatisfy (== 'N') >>= \case
         True -> do
           Latin.char2 InvalidTunnelIp '/' 'A'
           pure b0
@@ -1130,239 +1050,204 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
           val <- IP.parserUtf8Bytes InvalidTunnelIp
           let !atom = TunnelIp val
           P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_tunnelid -> case zequal8 arr off 't' 'u' 'n' 'n' 'e' 'l' 'i' 'd' of
-      0# -> do
-        val <- Latin.decWord64 InvalidTunnelId
-        let !atom = TunnelId val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_dst_host -> case zequal8 arr off 'd' 's' 't' '_' 'h' 'o' 's' 't' of
-      0# -> do
-        val <- asciiTextField InvalidDestinationHost
-        let !atom = DestinationHost val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_dhcp_msg -> case zequal8 arr off 'd' 'h' 'c' 'p' '_' 'm' 's' 'g' of
-      0# -> do
-        val <- asciiTextField InvalidDhcpMessage
-        let !atom = DhcpMessage val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_nextstat -> case zequal8 arr off 'n' 'e' 'x' 't' 's' 't' 'a' 't' of
-      0# -> do
-        val <- Latin.decWord64 InvalidNextStatistics
-        let !atom = NextStatistics val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_attackid -> case zequal8 arr off 'a' 't' 't' 'a' 'c' 'k' 'i' 'd' of
-      0# -> do
-        val <- Latin.decWord64 InvalidAttackId
-        let !atom = AttackId val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_countips -> case zequal8 arr off 'c' 'o' 'u' 'n' 't' 'i' 'p' 's' of
-      0# -> do
-        val <- Latin.decWord64 InvalidCountIps
-        let !atom = CountIps val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_hostname -> case zequal8 arr off 'h' 'o' 's' 't' 'n' 'a' 'm' 'e' of
-      0# -> do
-        val <- asciiTextField InvalidHostname
-        let !atom = Hostname val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_filename -> case zequal8 arr off 'f' 'i' 'l' 'e' 'n' 'a' 'm' 'e' of
-      0# -> do
-        val <- escapedAsciiTextField InvalidFilename
-        let !atom = Filename val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_craction -> case zequal8 arr off 'c' 'r' 'a' 'c' 't' 'i' 'o' 'n' of
-      0# -> do
-        val <- asciiTextField InvalidClientReputationAction
-        let !atom = ClientReputationAction val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_severity -> case zequal8 arr off 's' 'e' 'v' 'e' 'r' 'i' 't' 'y' of
-      0# -> do
-        val <- asciiTextField InvalidSeverity
-        let !atom = Severity val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_policyid -> case zequal8 arr off 'p' 'o' 'l' 'i' 'c' 'y' 'i' 'd' of
-      0# -> do
-        val <- Latin.decWord64 InvalidPolicyId
-        let !atom = PolicyId val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_duration -> case zequal8 arr off 'd' 'u' 'r' 'a' 't' 'i' 'o' 'n' of
-      0# -> do
-        val <- Latin.decWord64 InvalidDuration
-        let !atom = Duration val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_sentbyte -> case zequal8 arr off 's' 'e' 'n' 't' 'b' 'y' 't' 'e' of
-      0# -> do
-        val <- Latin.decWord64 InvalidSentBytes
-        let !atom = SentBytes val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_rcvdbyte -> case zequal8 arr off 'r' 'c' 'v' 'd' 'b' 'y' 't' 'e' of
-      0# -> do
-        val <- Latin.decWord64 InvalidReceivedBytes
-        let !atom = ReceivedBytes val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_countweb -> case zequal8 arr off 'c' 'o' 'u' 'n' 't' 'w' 'e' 'b' of
-      0# -> do
-        val <- Latin.decWord64 InvalidCountWeb
-        let !atom = CountWeb val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_countapp -> case zequal8 arr off 'c' 'o' 'u' 'n' 't' 'a' 'p' 'p' of
-      0# -> do
-        val <- Latin.decWord64 InvalidCountApplication
-        let !atom = CountApplication val
-        P.effect (Builder.push atom b0)
-      _ -> discardUnknownField b0
-    G.H_trandisp -> case zequal8 arr off 't' 'r' 'a' 'n' 'd' 'i' 's' 'p' of
-      0# -> Latin.any InvalidTranslationDisposition >>= \case
-        '"' -> Latin.any InvalidTranslationDisposition >>= \case
-          'n' -> do
-            Latin.char4 InvalidTranslationDisposition 'o' 'o' 'p' '"'
-            pure b0
-          'd' -> do
-            Latin.char5 InvalidTranslationDisposition 'n' 'a' 't' '"' ' '
-            dnatFinish b0
-          's' -> do
-            Latin.char3 InvalidTranslationDisposition 'n' 'a' 't'
-            Latin.trySatisfy (== '+') >>= \case
-              False -> do
-                Latin.char2 InvalidTranslationDisposition '"' ' '
-                snatFinish b0
-              True -> do
-                Latin.char6 InvalidTranslationDisposition 'd' 'n' 'a' 't' '"' ' '
-                snatAndDnatFinish b0
-          _ -> P.fail InvalidTranslationDisposition
+    G.W_tunnelid -> do
+      val <- Latin.decWord64 InvalidTunnelId
+      let !atom = TunnelId val
+      P.effect (Builder.push atom b0)
+    G.W_dst_host -> do
+      val <- asciiTextField InvalidDestinationHost
+      let !atom = DestinationHost val
+      P.effect (Builder.push atom b0)
+    G.W_dhcp_msg -> do
+      val <- asciiTextField InvalidDhcpMessage
+      let !atom = DhcpMessage val
+      P.effect (Builder.push atom b0)
+    G.W_nextstat -> do
+      val <- Latin.decWord64 InvalidNextStatistics
+      let !atom = NextStatistics val
+      P.effect (Builder.push atom b0)
+    G.W_attackid -> do
+      val <- Latin.decWord64 InvalidAttackId
+      let !atom = AttackId val
+      P.effect (Builder.push atom b0)
+    G.W_countips -> do
+      val <- Latin.decWord64 InvalidCountIps
+      let !atom = CountIps val
+      P.effect (Builder.push atom b0)
+    G.W_hostname -> do
+      val <- asciiTextField InvalidHostname
+      let !atom = Hostname val
+      P.effect (Builder.push atom b0)
+    G.W_filename -> do
+      val <- escapedAsciiTextField InvalidFilename
+      let !atom = Filename val
+      P.effect (Builder.push atom b0)
+    G.W_craction -> do
+      val <- asciiTextField InvalidClientReputationAction
+      let !atom = ClientReputationAction val
+      P.effect (Builder.push atom b0)
+    G.W_severity -> do
+      val <- asciiTextField InvalidSeverity
+      let !atom = Severity val
+      P.effect (Builder.push atom b0)
+    G.W_policyid -> do
+      val <- Latin.decWord64 InvalidPolicyId
+      let !atom = PolicyId val
+      P.effect (Builder.push atom b0)
+    G.W_duration -> do
+      val <- Latin.decWord64 InvalidDuration
+      let !atom = Duration val
+      P.effect (Builder.push atom b0)
+    G.W_sentbyte -> do
+      val <- Latin.decWord64 InvalidSentBytes
+      let !atom = SentBytes val
+      P.effect (Builder.push atom b0)
+    G.W_rcvdbyte -> do
+      val <- Latin.decWord64 InvalidReceivedBytes
+      let !atom = ReceivedBytes val
+      P.effect (Builder.push atom b0)
+    G.W_countweb -> do
+      val <- Latin.decWord64 InvalidCountWeb
+      let !atom = CountWeb val
+      P.effect (Builder.push atom b0)
+    G.W_countapp -> do
+      val <- Latin.decWord64 InvalidCountApplication
+      let !atom = CountApplication val
+      P.effect (Builder.push atom b0)
+    G.W_trandisp -> Latin.any InvalidTranslationDisposition >>= \case
+      '"' -> Latin.any InvalidTranslationDisposition >>= \case
         'n' -> do
-          Latin.char3 InvalidTranslationDisposition 'o' 'o' 'p'
+          Latin.char4 InvalidTranslationDisposition 'o' 'o' 'p' '"'
           pure b0
         'd' -> do
-          Latin.char4 InvalidTranslationDisposition 'n' 'a' 't' ' '
+          Latin.char5 InvalidTranslationDisposition 'n' 'a' 't' '"' ' '
           dnatFinish b0
         's' -> do
           Latin.char3 InvalidTranslationDisposition 'n' 'a' 't'
           Latin.trySatisfy (== '+') >>= \case
             False -> do
-              Latin.char InvalidTranslationDisposition ' '
+              Latin.char2 InvalidTranslationDisposition '"' ' '
               snatFinish b0
             True -> do
-              Latin.char5 InvalidTranslationDisposition 'd' 'n' 'a' 't' ' '
+              Latin.char6 InvalidTranslationDisposition 'd' 'n' 'a' 't' '"' ' '
               snatAndDnatFinish b0
         _ -> P.fail InvalidTranslationDisposition
-      _ -> discardUnknownField b0
+      'n' -> do
+        Latin.char3 InvalidTranslationDisposition 'o' 'o' 'p'
+        pure b0
+      'd' -> do
+        Latin.char4 InvalidTranslationDisposition 'n' 'a' 't' ' '
+        dnatFinish b0
+      's' -> do
+        Latin.char3 InvalidTranslationDisposition 'n' 'a' 't'
+        Latin.trySatisfy (== '+') >>= \case
+          False -> do
+            Latin.char InvalidTranslationDisposition ' '
+            snatFinish b0
+          True -> do
+            Latin.char5 InvalidTranslationDisposition 'd' 'n' 'a' 't' ' '
+            snatAndDnatFinish b0
+      _ -> P.fail InvalidTranslationDisposition
     _ -> discardUnknownField b0
   9 -> case G.hashString9 arr off of
-    G.H_dstregion -> case zequal9 arr off 'd' 's' 't' 'r' 'e' 'g' 'i' 'o' 'n' of
-      0# -> do
+    G.H_dstregion -> case equal9 arr off "dstregion"# of
+      0## -> do
         val <- asciiTextField InvalidDestinationRegion
         let !atom = DestinationRegion val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_srcregion -> case zequal9 arr off 's' 'r' 'c' 'r' 'e' 'g' 'i' 'o' 'n' of
-      0# -> do
+    G.H_srcregion -> case equal9 arr off "srcregion"# of
+      0## -> do
         val <- asciiTextField InvalidSourceRegion
         let !atom = SourceRegion val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_dstserver -> case zequal9 arr off 'd' 's' 't' 's' 'e' 'r' 'v' 'e' 'r' of
-      0# -> do
+    G.H_dstserver -> case equal9 arr off "dstserver"# of
+      0## -> do
         val <- Latin.decWord64 InvalidDestinationServer
         let !atom = DestinationServer val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_urlsource -> case zequal9 arr off 'u' 'r' 'l' 's' 'o' 'u' 'r' 'c' 'e' of
-      0# -> do
+    G.H_urlsource -> case equal9 arr off "urlsource"# of
+      0## -> do
         val <- asciiTextField InvalidUrlSource
         let !atom = UrlSource val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_dstosname -> case zequal9 arr off 'd' 's' 't' 'o' 's' 'n' 'a' 'm' 'e' of
-      0# -> do
+    G.H_dstosname -> case equal9 arr off "dstosname"# of
+      0## -> do
         val <- asciiTextField InvalidDestinationOsName
         let !atom = DestinationOsName val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_sslaction -> case zequal9 arr off 's' 's' 'l' 'a' 'c' 't' 'i' 'o' 'n' of
-      0# -> do
+    G.H_sslaction -> case equal9 arr off "sslaction"# of
+      0## -> do
         val <- asciiTextField InvalidSslAction
         let !atom = SslAction val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_osversion -> case zequal9 arr off 'o' 's' 'v' 'e' 'r' 's' 'i' 'o' 'n' of
-      0# -> do
+    G.H_osversion -> case equal9 arr off "osversion"# of
+      0## -> do
         val <- asciiTextField InvalidOsVersion
         let !atom = OsVersion val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_srcserver -> case zequal9 arr off 's' 'r' 'c' 's' 'e' 'r' 'v' 'e' 'r' of
-      0# -> do
+    G.H_srcserver -> case equal9 arr off "srcserver"# of
+      0## -> do
         val <- Latin.decWord64 InvalidSourceServer
         let !atom = SourceServer val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_interface -> case zequal9 arr off 'i' 'n' 't' 'e' 'r' 'f' 'a' 'c' 'e' of
-      0# -> do
+    G.H_interface -> case equal9 arr off "interface"# of
+      0## -> do
         val <- asciiTextField InvalidInterface
         let !atom = Interface val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_sessionid -> case zequal9 arr off 's' 'e' 's' 's' 'i' 'o' 'n' 'i' 'd' of
-      0# -> do
+    G.H_sessionid -> case equal9 arr off "sessionid"# of
+      0## -> do
         val <- Latin.decWord64 InvalidSessionId
         let !atom = SessionId val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_eventtype -> case zequal9 arr off 'e' 'v' 'e' 'n' 't' 't' 'y' 'p' 'e' of
-      0# -> do
+    G.H_eventtype -> case equal9 arr off "eventtype"# of
+      0## -> do
         val <- asciiTextField InvalidEventType
         let !atom = EventType val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_eventtime -> case zequal9 arr off 'e' 'v' 'e' 'n' 't' 't' 'i' 'm' 'e' of
-      0# -> do
+    G.H_eventtime -> case equal9 arr off "eventtime"# of
+      0## -> do
         val <- Latin.decWord64 InvalidEventTime
         let !atom = EventTime val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_utmaction -> case zequal9 arr off 'u' 't' 'm' 'a' 'c' 't' 'i' 'o' 'n' of
-      0# -> do
+    G.H_utmaction -> case equal9 arr off "utmaction"# of
+      0## -> do
         val <- asciiTextField InvalidUtmAction
         let !atom = UtmAction val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_direction -> case zequal9 arr off 'd' 'i' 'r' 'e' 'c' 't' 'i' 'o' 'n' of
-      0# -> do
+    G.H_direction -> case equal9 arr off "direction"# of
+      0## -> do
         val <- asciiTextField InvalidDirection
         let !atom = Direction val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_srcfamily -> case zequal9 arr off 's' 'r' 'c' 'f' 'a' 'm' 'i' 'l' 'y' of
-      0# -> do
+    G.H_srcfamily -> case equal9 arr off "srcfamily"# of
+      0## -> do
         val <- asciiTextField InvalidSourceFamily
         let !atom = SourceFamily val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_sentdelta -> case zequal9 arr off 's' 'e' 'n' 't' 'd' 'e' 'l' 't' 'a' of
-      0# -> do
+    G.H_sentdelta -> case equal9 arr off "sentdelta"# of
+      0## -> do
         val <- Latin.decWord64 InvalidSentDelta
         let !atom = SentDelta val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
-    G.H_rcvddelta -> case zequal9 arr off 'r' 'c' 'v' 'd' 'd' 'e' 'l' 't' 'a' of
-      0# -> do
+    G.H_rcvddelta -> case equal9 arr off "rcvddelta"# of
+      0## -> do
         val <- Latin.decWord64 InvalidReceivedDelta
         let !atom = ReceivedDelta val
         P.effect (Builder.push atom b0)
@@ -1715,109 +1600,26 @@ uuidField e = do
   when isQuoted (Latin.char e '"')
   pure r
 
-zequal2 :: ByteArray -> Int -> Char -> Char -> Int#
-zequal2 (ByteArray arr) (I# off) (C# a) (C# b) =
-  zeqChar# (indexCharArray# arr off) a
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 1#)) b
+equal5 :: ByteArray -> Int -> Addr# -> Word#
+{-# inline equal5 #-}
+equal5 (ByteArray arr) (I# off) x =
+  word32ToWord# (indexWord8ArrayAsWord32# arr off `xorWord32#` indexWord8OffAddrAsWord32# x 0# ) 
+  `or#` 
+  (word8ToWord# (indexWord8Array# arr (off +# 4# )) `xor#` word8ToWord# (indexWord8OffAddr# x 4# ))
 
-zequal3 :: ByteArray -> Int -> Char -> Char -> Char -> Int#
-zequal3 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) =
-  zeqChar# (indexCharArray# arr off) a
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 1#)) b
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 2#)) c
+equal6 :: ByteArray -> Int -> Addr# -> Word#
+{-# inline equal6 #-}
+equal6 (ByteArray arr) (I# off) x =
+  word32ToWord# (indexWord8ArrayAsWord32# arr off `xorWord32#` indexWord8OffAddrAsWord32# x 0# ) 
+  `or#` 
+  (word16ToWord# (indexWord8ArrayAsWord16# arr (off +# 4# )) `xor#` word16ToWord# (indexWord8OffAddrAsWord16# x (off +# 4# )))
 
-zequal4 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Int#
-zequal4 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) =
-  zeqChar# (indexCharArray# arr off) a
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 1#)) b
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 2#)) c
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 3#)) d
-
-zequal5 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Int#
-zequal5 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) =
-  zeqChar# (indexCharArray# arr off) a
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 1#)) b
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 2#)) c
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 3#)) d
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 4#)) e
-
-zequal6 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
-zequal6 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) =
-  zeqChar# (indexCharArray# arr off) a
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 1#)) b
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 2#)) c
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 3#)) d
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 4#)) e
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 5#)) f
-
-zequal7 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
-zequal7 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g) =
-  zeqChar# (indexCharArray# arr off) a
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 1#)) b
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 2#)) c
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 3#)) d
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 4#)) e
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 5#)) f
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 6#)) g
-
-zequal8 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
-zequal8 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g) (C# h) =
-  zeqChar# (indexCharArray# arr off) a
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 1#)) b
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 2#)) c
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 3#)) d
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 4#)) e
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 5#)) f
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 6#)) g
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 7#)) h
-
-zequal9 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
-zequal9 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g) (C# h) (C# i) =
-  zeqChar# (indexCharArray# arr off) a
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 1#)) b
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 2#)) c
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 3#)) d
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 4#)) e
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 5#)) f
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 6#)) g
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 7#)) h
-  `orI#`
-  zeqChar# (indexCharArray# arr (off +# 8#)) i
+equal9 :: ByteArray -> Int -> Addr# -> Word#
+{-# inline equal9 #-}
+equal9 (ByteArray arr) (I# off) x =
+  word64ToWord# (indexWord8ArrayAsWord64# arr off `xor64#` indexWord8OffAddrAsWord64# x 0# ) 
+  `or#` 
+  (word8ToWord# (indexWord8Array# arr (off +# 8# )) `xor#` word8ToWord# (indexWord8OffAddr# x 8# ))
 
 zequal10 :: ByteArray -> Int -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Char -> Int#
 zequal10 (ByteArray arr) (I# off) (C# a) (C# b) (C# c) (C# d) (C# e) (C# f) (C# g) (C# h) (C# i) (C# j) =

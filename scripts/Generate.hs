@@ -19,6 +19,7 @@ import Data.Map (Map)
 import System.Random (randomIO)
 import Control.Monad (replicateM)
 import System.IO (stdin)
+import Numeric (showHex)
 
 import qualified Data.Map.Strict as Map
 import qualified Data.List as L
@@ -214,7 +215,7 @@ main = do
       go !acc !len (keywords : xs) = do
         r <- attemptTableSize keywords len
         go (acc <> r) (len + 1) xs
-  res <- go mempty 0 groupedKeywords
+  res :: Map Int (Algorithm, Int, Map Word String) <- go mempty 0 groupedKeywords
   Map.foldMapWithKey (\k v -> putStrLn (show k ++ ": " ++ show v)) res
   IO.withFile "src/Fortios/Generated.hs" IO.WriteMode $ \h -> do
     IO.hPutStrLn h "{-# language PatternSynonyms #-}"
@@ -223,12 +224,15 @@ main = do
     IO.hPutStr h "module Fortios.Generated\n  ("
     IO.hPutStrLn h (drop 3 (makePatternExports res))
     IO.hPutStrLn h (exportHashFuncs res)
+    IO.hPutStrLn h (exportSmallMatches groupedKeywords)
     IO.hPutStrLn h "  ) where\n"
     IO.hPutStrLn h "import Fortios.Hash (duohash,quadrohash)"
     IO.hPutStrLn h "import Data.Bytes.Types (Bytes(Bytes))\n"
     IO.hPutStrLn h "import Data.Primitive (ByteArray)\n"
+    IO.hPutStrLn h "import Data.Word (Word16,Word32,Word64)\n"
     IO.hPutStrLn h (makePatterns res)
     IO.hPutStrLn h (makeHashFuncs res)
+    IO.hPutStrLn h (makeSmallMatches groupedKeywords)
 
 takeDividingTwo :: [a] -> [a]
 takeDividingTwo (x : y : zs) = x : y : takeDividingTwo zs
@@ -366,3 +370,87 @@ exportHashFuncs :: Map Int (Algorithm, Int, Map Word String) -> String
 exportHashFuncs = Map.foldMapWithKey
   (\len _ -> "  , hashString" ++ show len ++ "\n"
   )
+
+exportSmallMatches :: [[String]] -> String
+exportSmallMatches = foldMap
+  (\xs -> foldMap (\str -> if isSmallMatchLength (L.length str) then "  , pattern W_" ++ str ++ "\n" else mempty) xs
+  )
+
+isSmallMatchLength :: Int -> Bool
+isSmallMatchLength n = case n of
+  8 -> True
+  7 -> True
+  4 -> True
+  3 -> True
+  2 -> True
+  _ -> False
+
+makeSmallMatches :: [[String]] -> String
+makeSmallMatches kws0 = foldMap
+  (\sz -> case kws0 L.!? sz of
+    Nothing -> error "makeSmallMatches: implementation mistake"
+    Just sizedGroup -> foldMap
+      (\str -> case sz of
+        8 ->
+          "pattern W_" ++ str ++ " :: Word64\n"
+          ++
+          "pattern W_" ++ str ++ " = " ++ smallStringToWord64 str ++ "\n\n"
+        -- There is always an equals sign after every word, so we can pretend
+        -- that a 7-length keyword is actually an 8-length keyword.
+        7 ->
+          "pattern W_" ++ str ++ " :: Word64\n"
+          ++
+          "pattern W_" ++ str ++ " = " ++ smallStringToWord64 (str ++ "=") ++ "\n\n"
+        4 ->
+          "pattern W_" ++ str ++ " :: Word32\n"
+          ++
+          "pattern W_" ++ str ++ " = " ++ smallStringToWord32 str ++ "\n\n"
+        -- Pretend that 3-length keyword is a 4-length keyword.
+        3 ->
+          "pattern W_" ++ str ++ " :: Word32\n"
+          ++
+          "pattern W_" ++ str ++ " = " ++ smallStringToWord32 (str ++ "=") ++ "\n\n"
+        2 ->
+          "pattern W_" ++ str ++ " :: Word16\n"
+          ++
+          "pattern W_" ++ str ++ " = " ++ smallStringToWord16 str ++ "\n\n"
+        _ -> mempty
+      ) sizedGroup
+  ) [0..8]
+
+smallStringToWord16 :: String -> String
+smallStringToWord16 s = concat
+  [ "0x"
+  , charAtIndexToHex s 1
+  , charAtIndexToHex s 0
+  ]
+
+smallStringToWord32 :: String -> String
+smallStringToWord32 s = concat
+  [ "0x"
+  , charAtIndexToHex s 3
+  , charAtIndexToHex s 2
+  , charAtIndexToHex s 1
+  , charAtIndexToHex s 0
+  ]
+
+smallStringToWord64 :: String -> String
+smallStringToWord64 s = concat
+  [ "0x"
+  , charAtIndexToHex s 7
+  , charAtIndexToHex s 6
+  , charAtIndexToHex s 5
+  , charAtIndexToHex s 4
+  , charAtIndexToHex s 3
+  , charAtIndexToHex s 2
+  , charAtIndexToHex s 1
+  , charAtIndexToHex s 0
+  ]
+  
+charAtIndexToHex :: String -> Int -> String
+charAtIndexToHex s i = case s L.!? i of
+  Nothing -> "00"
+  Just c -> let raw = showHex (ord c) "" in case L.length raw of
+    0 -> "00"
+    1 -> '0' : raw
+    _ -> raw

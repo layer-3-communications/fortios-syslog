@@ -1535,6 +1535,7 @@ asciiTextField e = Latin.trySatisfy (== '"') >>= \case
 -- consume a trailing space. Also, if the field is quoted,
 -- the quoted field may contain quotes escaped by backslashes.
 escapedAsciiTextField :: e -> Parser e s Bytes
+{-# noinline escapedAsciiTextField #-}
 escapedAsciiTextField e = Latin.trySatisfy (== '"') >>= \case
   True -> do
     start <- Unsafe.cursor

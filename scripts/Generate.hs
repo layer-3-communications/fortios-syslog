@@ -226,7 +226,7 @@ main = do
     IO.hPutStrLn h (exportHashFuncs res)
     IO.hPutStrLn h (exportSmallMatches groupedKeywords)
     IO.hPutStrLn h "  ) where\n"
-    IO.hPutStrLn h "import Fortios.Hash (duohash,quadrohash)"
+    IO.hPutStrLn h "import Fortios.Hash (duohash,quadrohash,quadrohashOneStepInline)"
     IO.hPutStrLn h "import Data.Bytes.Types (Bytes(Bytes))\n"
     IO.hPutStrLn h "import Data.Primitive (ByteArray)\n"
     IO.hPutStrLn h "import Data.Word (Word16,Word32,Word64)\n"
@@ -358,11 +358,17 @@ makeHashFuncs = Map.foldMapWithKey
           "rem (duohash 0 " ++ show x1 ++ " " ++ show x2 ++ 
           " (Bytes arr off " ++ show (2 * div len 2) ++ ")) " ++
           show n ++ "\n\n"
-        AlgoFour x1 x2 x3 x4 ->
-          "rem (quadrohash 0 " ++ show x1 ++ " " ++ show x2 ++ " " ++
-          show x3 ++ " " ++ show x4 ++ 
-          " (Bytes arr off " ++ show (4 * div len 4) ++ ")) " ++
-          show n ++ "\n\n"
+        AlgoFour x1 x2 x3 x4 -> case div len 4 of
+          1 -> 
+            "rem (quadrohashOneStepInline 0 " ++ show x1 ++ " " ++ show x2 ++ " " ++
+            show x3 ++ " " ++ show x4 ++ 
+            " arr off) " ++
+            show n ++ "\n\n"
+          _ ->
+            "rem (quadrohash 0 " ++ show x1 ++ " " ++ show x2 ++ " " ++
+            show x3 ++ " " ++ show x4 ++ 
+            " (Bytes arr off " ++ show (4 * div len 4) ++ ")) " ++
+            show n ++ "\n\n"
     ]
   )
 

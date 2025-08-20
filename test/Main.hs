@@ -71,6 +71,8 @@ testTrafficLocalA = case FGT.decode S.traffic_local_A of
       (fail "wrong device id")
     for_ (FGT.fields x)
       (\case
+        FGT.Protocol v ->
+          when (v /= 6) (fail "wrong proto")
         FGT.ClientReputationLevel v ->
           when (v /= str "high") (fail "wrong crlevel")
         FGT.SessionId v ->

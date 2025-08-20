@@ -28,6 +28,7 @@ library
     , chronos >=1.0.5
     , ip >=1.7.1 && <1.8
     , primitive >=0.7.1 && <0.10
+    , byte-order >=0.1.3.1
     , run-st >=0.1.1 && <0.2
     , uuid-bytes >=0.1 && <0.2
     , wide-word >=0.1.0.8
@@ -59,7 +60,7 @@ benchmark bench
     , base
     , byteslice
     , fortios-syslog
-    , gauge
+    , criterion
     , primitive
   ghc-options: -O2 -Wall
   default-language: Haskell2010

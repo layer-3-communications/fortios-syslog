@@ -1612,7 +1612,7 @@ equal6 :: ByteArray -> Int -> Addr# -> Word#
 equal6 (ByteArray arr) (I# off) x =
   word32ToWord# (indexWord8ArrayAsWord32# arr off `xorWord32#` indexWord8OffAddrAsWord32# x 0# ) 
   `or#` 
-  (word16ToWord# (indexWord8ArrayAsWord16# arr (off +# 4# )) `xor#` word16ToWord# (indexWord8OffAddrAsWord16# x (off +# 4# )))
+  (word16ToWord# (indexWord8ArrayAsWord16# arr (off +# 4# )) `xor#` word16ToWord# (indexWord8OffAddrAsWord16# x 4# ))
 
 equal9 :: ByteArray -> Int -> Addr# -> Word#
 {-# inline equal9 #-}

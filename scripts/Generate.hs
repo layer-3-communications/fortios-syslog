@@ -52,6 +52,8 @@ allKeywords =
   , "cdrcontent"
   , "centralnatid"
   , "checksum"
+  , "cfgobj"
+  , "cfgpath"
   , "contentdisarmed"
   , "cookies"
   , "countapp"

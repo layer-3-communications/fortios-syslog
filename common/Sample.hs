@@ -19,6 +19,7 @@ module Sample
   , utm_webfilter_C
   , utm_webfilter_D
   , utm_signature_A
+  , utm_signature_B
   , event_system_A
   , event_user_A
   , event_wireless_A
@@ -221,12 +222,29 @@ utm_webfilter_D = pack $ concat
   ]
 
 utm_signature_A :: Bytes
-utm_signature_A= pack $ concat
+utm_signature_A = pack $ concat
   [ "<190>logver=704092829 timestamp=1770317555 devname=\"Foo\" "
   , "devid=\"FG6H1FTB22900118\" vd=\"root\" date=\"2026-02-05\" "
   , "time=\"13:52:35\" eventtime=1770317555386989774 tz=\"-0500\" "
   , "logid=\"1059028704\" type=\"utm\" subtype=\"app-ctrl\" "
   , "eventtype=\"signature\" level=\"information\" appid=15895"
+  ]
+
+utm_signature_B :: Bytes
+utm_signature_B = pack $ concat
+  [ "<190>logver=704092829 timestamp=1770317555 devname=\"Foo\" devid=\"FG6H1FTB22901818\" "
+  , "vd=\"root\" date=\"2026-02-05\" time=\"13:52:35\" eventtime=1770317555386989774 "
+  , "tz=\"-0500\" logid=\"1059028704\" type=\"utm\" subtype=\"app-ctrl\" "
+  , "eventtype=\"signature\" level=\"information\" appid=15895 srcip=\"192.0.2.16\" "
+  , "srccountry=\"Reserved\" dstip=\"192.0.2.43\" dstcountry=\"Reserved\" "
+  , "srcport=3490 dstport=38881 srcintf=\"vlan210\" srcintfrole=\"lan\" "
+  , "dstintf=\"MYINTF_W1\" dstintfrole=\"wan\" proto=6 service=\"SSL\" "
+  , "direction=\"outgoing\" policyid=100 poluuid=\"6b144aca-5e1e-51ed-493d-116a876ba80d\" "
+  , "policytype=\"policy\" sessionid=1499918049 applist=\"Foo_AP\" "
+  , "action=\"pass\" appcat=\"Network.Service\" app=\"SSL\" "
+  , "hostname=\"cluster:0c2e449a-6b65-4e50-8a4b-b0dfb39781d8\" incidentserialno=1241847395 "
+  , "url=\"/\" msg=\"Network.Service: SSL\" apprisk=\"elevated\" "
+  , "scertcname=\"cluster:0c2e449a-6b65-4e50-8a4b-b0dfb39781d8\" scertissuer=\"SiteSign\""
   ]
 
 event_system_A :: Bytes

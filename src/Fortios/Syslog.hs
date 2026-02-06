@@ -816,13 +816,17 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     G.H_srcip -> case zequal5 arr off 's' 'r' 'c' 'i' 'p' of
       0# -> do
+        quoted <- Latin.trySatisfy (=='"')
         val <- optQuotedIp InvalidSourceIp
+        when quoted (Latin.char InvalidDestinationMac '"')
         let !atom = SourceIp val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     G.H_dstip -> case zequal5 arr off 'd' 's' 't' 'i' 'p' of
       0# -> do
+        quoted <- Latin.trySatisfy (=='"')
         val <- IP.parserUtf8Bytes InvalidDestinationIp
+        when quoted (Latin.char InvalidDestinationMac '"')
         let !atom = DestinationIp val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0

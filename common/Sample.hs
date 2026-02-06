@@ -18,6 +18,7 @@ module Sample
   , utm_webfilter_B
   , utm_webfilter_C
   , utm_webfilter_D
+  , utm_signature_A
   , event_system_A
   , event_user_A
   , event_wireless_A
@@ -217,6 +218,15 @@ utm_webfilter_D = pack $ concat
   , "devid=\"F5KF20T017458715\" vd=\"root\" date=2023-01-25 time=13:54:03 "
   , "slot=2 eventtime=1674676443552591387 tz=\"-0600\" logid=\"0317013312\" "
   , "type=\"utm\" subtype=\"webfilter\" eventtype=\"ftgd_allow\" level=\"notice\""
+  ]
+
+utm_signature_A :: Bytes
+utm_signature_A= pack $ concat
+  [ "<190>logver=704092829 timestamp=1770317555 devname=\"Foo\" "
+  , "devid=\"FG6H1FTB22900118\" vd=\"root\" date=\"2026-02-05\" "
+  , "time=\"13:52:35\" eventtime=1770317555386989774 tz=\"-0500\" "
+  , "logid=\"1059028704\" type=\"utm\" subtype=\"app-ctrl\" "
+  , "eventtype=\"signature\" level=\"information\" appid=15895"
   ]
 
 event_system_A :: Bytes

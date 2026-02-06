@@ -51,6 +51,8 @@ main = do
   testUtmWebfilterC
   putStrLn "utm_webfilter_D"
   testUtmWebfilterD
+  putStrLn "utm_signature_A"
+  testUtmSignatureA
   putStrLn "event_system_A:priority"
   testEventSystemA WithPriority
   putStrLn "event_system_A:no-priority"
@@ -303,6 +305,12 @@ testUtmWebfilterD = case FGT.decode S.utm_webfilter_D of
   Left e -> fail (show e)
   Right x -> do
     when (FGT.subtype x /= str "webfilter") (fail "wrong subtype")
+
+testUtmSignatureA :: IO ()
+testUtmSignatureA = case FGT.decode S.utm_signature_A of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "signature") (fail "wrong subtype")
 
 testEventUserA :: IO ()
 testEventUserA = case FGT.decode S.event_user_A of

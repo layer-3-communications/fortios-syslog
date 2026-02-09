@@ -816,17 +816,13 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
       _ -> discardUnknownField b0
     G.H_srcip -> case zequal5 arr off 's' 'r' 'c' 'i' 'p' of
       0# -> do
-        quoted <- Latin.trySatisfy (=='"')
         val <- optQuotedIp InvalidSourceIp
-        when quoted (Latin.char InvalidDestinationMac '"')
         let !atom = SourceIp val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
     G.H_dstip -> case zequal5 arr off 'd' 's' 't' 'i' 'p' of
       0# -> do
-        quoted <- Latin.trySatisfy (=='"')
-        val <- IP.parserUtf8Bytes InvalidDestinationIp
-        when quoted (Latin.char InvalidDestinationMac '"')
+        val <- optQuotedIp InvalidDestinationIp
         let !atom = DestinationIp val
         P.effect (Builder.push atom b0)
       _ -> discardUnknownField b0
@@ -1629,7 +1625,7 @@ afterEquals !b !b0 = case fromIntegral @Int @Word len of
 dnatFinish :: Builder s Field -> Parser DecodeException s (Builder s Field)
 dnatFinish !b0 = do
   Latin.char7 InvalidTranslationDisposition 't' 'r' 'a' 'n' 'i' 'p' '='
-  !ip <- IPv4.parserUtf8Bytes InvalidTranslationIp
+  !ip <- optQuotedIPv4 InvalidTranslationIp
   Latin.char10 InvalidTranslationDisposition ' ' 't' 'r' 'a' 'n' 'p' 'o' 'r' 't' '='
   !port <- Latin.decWord16 InvalidTranslationPort
   let !atom = TranslatedDestination ip port
@@ -1638,7 +1634,7 @@ dnatFinish !b0 = do
 snatFinish :: Builder s Field -> Parser DecodeException s (Builder s Field)
 snatFinish !b0 = do
   Latin.char8 InvalidTranslationDisposition 't' 'r' 'a' 'n' 's' 'i' 'p' '='
-  !ip <- IPv4.parserUtf8Bytes InvalidTranslationIp
+  !ip <- optQuotedIPv4 InvalidTranslationIp
   Latin.char11 InvalidTranslationDisposition ' ' 't' 'r' 'a' 'n' 's' 'p' 'o' 'r' 't' '='
   !port <- Latin.decWord16 InvalidTranslationPort
   let !atom = TranslatedSource ip port
@@ -1647,7 +1643,7 @@ snatFinish !b0 = do
 snatAndDnatFinish :: Builder s Field -> Parser DecodeException s (Builder s Field)
 snatAndDnatFinish b0 = do
   Latin.char7 InvalidTranslationDisposition 't' 'r' 'a' 'n' 'i' 'p' '='
-  !ip <- IPv4.parserUtf8Bytes InvalidTranslationIp
+  !ip <- optQuotedIPv4 InvalidTranslationIp
   Latin.char10 InvalidTranslationDisposition ' ' 't' 'r' 'a' 'n' 'p' 'o' 'r' 't' '='
   !port <- Latin.decWord16 InvalidTranslationPort
   Latin.char InvalidTranslationDisposition ' '
@@ -1659,6 +1655,11 @@ optQuotedIp :: e -> Parser e s IP
 optQuotedIp e = Latin.trySatisfy (== '"') >>= \case
   True -> IP.parserUtf8Bytes e <* Latin.char e '"'
   False -> IP.parserUtf8Bytes e
+
+optQuotedIPv4 :: e -> Parser e s IPv4
+optQuotedIPv4 e = Latin.trySatisfy (== '"') >>= \case
+  True -> IPv4.parserUtf8Bytes e <* Latin.char e '"'
+  False -> IPv4.parserUtf8Bytes e
 
 -- Field is optionally surrounded by quotes. This does not
 -- consume a trailing space.

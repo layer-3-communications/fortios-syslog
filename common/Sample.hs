@@ -14,6 +14,7 @@ module Sample
   , traffic_forward_H
   , traffic_forward_I
   , traffic_forward_J
+  , utm_app_ctrl_A
   , utm_webfilter_A
   , utm_webfilter_B
   , utm_webfilter_C
@@ -358,4 +359,16 @@ traffic_system_A = pack $ concat
   , "logver=1 id=96900 type=\"traffic\" subtype=\"system\" "
   , "eventtype=\"traffic\" level=\"info\" uid=\"658D8A8D5F13405E2DE15A8464961D4B\" "
   , "hostname=\"EXAMPLEHOST\" pcdomain=\"example.com\" deviceip=192.0.2.117"
+  ]
+
+utm_app_ctrl_A :: Bytes
+utm_app_ctrl_A = pack $ concat
+  [ "<190>reporting_ip=192.0.2.15 logver=704112878 timestamp=1793224093 "
+  , "devname=\"DevFoo\" devid=\"FG4H1FT999999999\" vd=\"root\" "
+  , "date=\"2026-10-28\" time=\"17:48:13\" eventtime=1793224093919257022 "
+  , "tz=\"-0400\" logid=\"1059028704\" type=\"utm\" subtype=\"app-ctrl\" "
+  , "eventtype=\"signature\" level=\"information\" appid=34640 "
+  , "srcip=\"192.0.2.22\" srccountry=\"United States\" dstip=\"192.0.2.201\" "
+  , "dstcountry=\"United States\" srcport=34420 dstport=5060 "
+  , "srcintf=\"MyWan1\" srcintfrole=\"wan\""
   ]

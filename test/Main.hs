@@ -43,6 +43,8 @@ main = do
   testTrafficSystemA
   putStrLn "event_wireless_A"
   testEventWirelessA
+  putStrLn "utm_app_ctrl_A"
+  testUtmAppCtrlA
   putStrLn "utm_webfilter_A"
   testUtmWebfilterA
   putStrLn "utm_webfilter_B"
@@ -261,6 +263,12 @@ testEventWirelessA = case FGT.decode S.event_wireless_A of
           when (s /= expected) (fail ("Wrong reason. Expected:\n" ++ show expected ++ "\nGot:\n" ++ show s))
         _ -> pure ()
       )
+
+testUtmAppCtrlA :: IO ()
+testUtmAppCtrlA = case FGT.decode S.utm_app_ctrl_A of
+  Left e -> fail (show e)
+  Right x -> do
+    when (FGT.subtype x /= str "app-ctrl") (fail "wrong subtype")
 
 testUtmWebfilterA :: IO ()
 testUtmWebfilterA = case FGT.decode S.utm_webfilter_A of

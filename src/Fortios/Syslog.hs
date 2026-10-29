@@ -65,6 +65,7 @@ data DecodeException
   | ExpectedDeviceId
   | ExpectedDeviceName
   | ExpectedId
+  | ExpectedReportingIp
   | ExpectedLogVer
   | ExpectedEventTime
   | ExpectedFctsn
@@ -409,6 +410,21 @@ decodeSemistructured b = case P.parseBytes semistructuredParser b of
   P.Failure e -> Left e
   P.Success (P.Slice _ _ x) -> Right x
 
+finishModeC :: Parser DecodeException s Log
+finishModeC = do
+  Latin.char10 ExpectedReportingIp 'r' 'e' 'p' 'o' 'r' 't' 'i' 'n' 'g' '_'
+  Latin.char3 ExpectedReportingIp 'i' 'p' '='
+  _ <- optQuotedIPv4 ExpectedReportingIp
+  Latin.char ExpectedReportingIp ' '
+  finishModeB
+
+finishModeB :: Parser DecodeException s Log
+finishModeB = do
+  Latin.char7 ExpectedLogVer 'l' 'o' 'g' 'v' 'e' 'r' '='
+  Latin.skipDigits1 ExpectedLogVer
+  Latin.char ExpectedLogVer ' '
+  finishModeA
+
 finishModeA :: Parser DecodeException s Log
 finishModeA = do
   P.cstring ExpectedTimestamp (Ptr "timestamp="#)
@@ -511,11 +527,8 @@ fullParser = do
   -- Skip any leading space or any space after the syslog priority.
   Latin.skipChar ' '
   Latin.peek' ExpectedLeadingChar >>= \case
-    'l' -> do
-      Latin.char7 ExpectedLogVer 'l' 'o' 'g' 'v' 'e' 'r' '='
-      Latin.skipDigits1 ExpectedLogVer
-      Latin.char ExpectedLogVer ' '
-      finishModeA
+    'r' -> finishModeC
+    'l' -> finishModeB
     't' -> finishModeA
     _ -> do
       Datetime date time <- takeDateAndTime
